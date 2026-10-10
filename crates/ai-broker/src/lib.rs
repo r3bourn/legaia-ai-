@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, anyhow, bail};
+use legaia_ai_controller::HighLevelAction;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
@@ -14,7 +15,7 @@ pub struct DecisionRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DecisionResponse {
-    pub action: String,
+    pub action: HighLevelAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
     #[serde(default)]
@@ -78,11 +79,12 @@ pub fn build_prompt(request: &DecisionRequest) -> Result<String> {
 
     Ok(format!(
         "You are the high-level decision layer for an AI playing Legend of Legaia.\n\
-         You do not press buttons directly. Choose one bounded, high-level next action.\n\
+         You do not press buttons directly and you do not use tools. Choose one bounded, high-level next action.\n\
          Prefer deterministic progress toward the objective. Do not invent game state.\n\
          Return exactly one JSON object and no markdown.\n\
+         The action MUST be one of: navigate, interact, open_menu, battle, wait, observe, pause.\n\
          Required schema:\n\
-         {{\"action\":\"short_action_name\",\"target\":\"optional target or null\",\"reason\":\"brief reason\",\"confidence\":0.0}}\n\n\
+         {{\"action\":\"navigate\",\"target\":\"optional target or null\",\"reason\":\"brief reason\",\"confidence\":0.0}}\n\n\
          Objective:\n{}\n\n\
          Walkthrough context:\n{}\n\n\
          Current structured game state:\n{}",
@@ -91,27 +93,55 @@ pub fn build_prompt(request: &DecisionRequest) -> Result<String> {
 }
 
 fn run_claude(command: &str, prompt: &str) -> Result<String> {
-    run_command(
+    // Print mode is the supported non-interactive path. Plan permission mode
+    // and one turn keep the gameplay broker decision-only. Running from a
+    // fresh empty directory also prevents project files from becoming ambient
+    // context for a model that only needs the supplied game-state JSON.
+    run_command_isolated(
         command,
-        &["-p", prompt, "--output-format", "text"],
+        &[
+            "-p",
+            prompt,
+            "--output-format",
+            "text",
+            "--max-turns",
+            "1",
+            "--permission-mode",
+            "plan",
+        ],
         "Claude Code",
     )
 }
 
 fn run_codex(command: &str, prompt: &str) -> Result<String> {
-    // `codex exec` is the supported non-interactive CLI path. Its final answer
-    // is written to stdout, while progress goes to stderr, which keeps this
-    // adapter simple and avoids touching Codex authentication material.
-    run_command(command, &["exec", prompt], "Codex CLI")
+    // Codex is explicitly pinned read-only with no approval escalation. The
+    // empty working directory means even its read surface contains no game,
+    // repository, save or secret files; authentication remains owned by the
+    // official CLI under the dedicated service user's HOME.
+    run_command_isolated(
+        command,
+        &[
+            "exec",
+            "--sandbox",
+            "read-only",
+            "--ask-for-approval",
+            "never",
+            "--skip-git-repo-check",
+            prompt,
+        ],
+        "Codex CLI",
+    )
 }
 
 fn run_ollama(command: &str, model: &str, prompt: &str) -> Result<String> {
-    run_command(command, &["run", model, prompt], "Ollama")
+    run_command_isolated(command, &["run", model, prompt], "Ollama")
 }
 
-fn run_command(command: &str, args: &[&str], label: &str) -> Result<String> {
+fn run_command_isolated(command: &str, args: &[&str], label: &str) -> Result<String> {
+    let cwd = tempfile::tempdir().context("failed to create isolated AI working directory")?;
     let output = Command::new(command)
         .args(args)
+        .current_dir(cwd.path())
         .output()
         .with_context(|| format!("failed to launch {label} command `{command}`"))?;
 
@@ -156,9 +186,6 @@ pub fn parse_decision(raw: &str) -> Result<DecisionResponse> {
 }
 
 fn validate_decision(value: DecisionResponse) -> Result<DecisionResponse> {
-    if value.action.trim().is_empty() {
-        bail!("AI decision action cannot be empty");
-    }
     if !(0.0..=1.0).contains(&value.confidence) {
         bail!("AI decision confidence must be between 0.0 and 1.0");
     }
@@ -171,7 +198,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn prompt_contains_objective_and_state() {
+    fn prompt_contains_objective_state_and_action_allowlist() {
         let request = DecisionRequest {
             objective: "Reach the Genesis Tree".to_string(),
             state: json!({"scene": "town01", "battle": false}),
@@ -182,16 +209,17 @@ mod tests {
         assert!(prompt.contains("Reach the Genesis Tree"));
         assert!(prompt.contains("town01"));
         assert!(prompt.contains("Walk north through Rim Elm."));
+        assert!(prompt.contains("navigate, interact, open_menu, battle, wait, observe, pause"));
     }
 
     #[test]
     fn parses_clean_json() {
         let decision = parse_decision(
-            r#"{"action":"move_to","target":"genesis_tree","reason":"objective","confidence":0.91}"#,
+            r#"{"action":"navigate","target":"genesis_tree","reason":"objective","confidence":0.91}"#,
         )
         .unwrap();
 
-        assert_eq!(decision.action, "move_to");
+        assert_eq!(decision.action, HighLevelAction::Navigate);
         assert_eq!(decision.target.as_deref(), Some("genesis_tree"));
     }
 
@@ -202,13 +230,21 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(decision.action, "wait");
+        assert_eq!(decision.action, HighLevelAction::Wait);
+    }
+
+    #[test]
+    fn rejects_unknown_action() {
+        let result = parse_decision(
+            r#"{"action":"delete_save","target":null,"reason":"x","confidence":0.5}"#,
+        );
+        assert!(result.is_err());
     }
 
     #[test]
     fn rejects_out_of_range_confidence() {
         let result = parse_decision(
-            r#"{"action":"move","target":null,"reason":"x","confidence":1.5}"#,
+            r#"{"action":"navigate","target":null,"reason":"x","confidence":1.5}"#,
         );
         assert!(result.is_err());
     }

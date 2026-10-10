@@ -1,6 +1,13 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use legaia_ai_broker::{DecisionRequest, ProviderConfig, decide};
-use std::io::{self, Read};
+use std::env;
+use std::io::{self, Read, Write};
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::time::Duration;
+
+const DEFAULT_BIND: &str = "127.0.0.1:4317";
+const MAX_REQUEST_BYTES: usize = 512 * 1024;
+const MAX_HEADER_BYTES: usize = 32 * 1024;
 
 fn main() {
     if let Err(err) = run() {
@@ -10,6 +17,33 @@ fn main() {
 }
 
 fn run() -> Result<()> {
+    match env::args().nth(1).as_deref() {
+        None => run_stdin_once(),
+        Some("serve") => run_server(),
+        Some("help") | Some("--help") | Some("-h") => {
+            print_help();
+            Ok(())
+        }
+        Some(other) => bail!("unknown command `{other}`; run with --help"),
+    }
+}
+
+fn print_help() {
+    println!(
+        "legaia-ai-broker\n\
+         \n\
+         Usage:\n\
+           legaia-ai-broker            Read one DecisionRequest JSON from stdin\n\
+           legaia-ai-broker serve      Run the local HTTP decision service\n\
+         \n\
+         Server environment:\n\
+           LEGAIA_AI_BIND              Bind address (default {DEFAULT_BIND})\n\
+           LEGAIA_AI_BEARER_TOKEN      Required when binding a non-loopback address\n\
+           LEGAIA_AI_CORS_ORIGIN       Optional exact Access-Control-Allow-Origin value\n"
+    );
+}
+
+fn run_stdin_once() -> Result<()> {
     let mut input = String::new();
     io::stdin()
         .read_to_string(&mut input)
@@ -23,4 +57,223 @@ fn run() -> Result<()> {
 
     println!("{}", serde_json::to_string(&decision)?);
     Ok(())
+}
+
+fn run_server() -> Result<()> {
+    let bind = env::var("LEGAIA_AI_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_string());
+    let addr: SocketAddr = bind
+        .parse()
+        .with_context(|| format!("invalid LEGAIA_AI_BIND `{bind}`"))?;
+    let bearer = env::var("LEGAIA_AI_BEARER_TOKEN")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+
+    if !addr.ip().is_loopback() && bearer.is_none() {
+        bail!(
+            "refusing to bind AI broker to non-loopback {addr} without LEGAIA_AI_BEARER_TOKEN"
+        );
+    }
+
+    let listener = TcpListener::bind(addr)
+        .with_context(|| format!("failed to bind AI broker to {addr}"))?;
+    eprintln!("legaia-ai-broker: listening on http://{addr}");
+
+    for incoming in listener.incoming() {
+        match incoming {
+            Ok(mut stream) => {
+                if let Err(err) = handle_connection(&mut stream, bearer.as_deref()) {
+                    eprintln!("legaia-ai-broker: request error: {err:#}");
+                    let _ = write_json_error(&mut stream, 500, "internal broker error");
+                }
+            }
+            Err(err) => eprintln!("legaia-ai-broker: accept error: {err}"),
+        }
+    }
+
+    Ok(())
+}
+
+fn handle_connection(stream: &mut TcpStream, bearer: Option<&str>) -> Result<()> {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .context("set read timeout")?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(60)))
+        .context("set write timeout")?;
+
+    let request = read_http_request(stream)?;
+
+    if request.method == "OPTIONS" {
+        return write_response(stream, 204, "text/plain", b"");
+    }
+
+    if request.method == "GET" && request.path == "/health" {
+        return write_response(stream, 200, "application/json", br#"{"ok":true}"#);
+    }
+
+    if request.method != "POST" || request.path != "/decision" {
+        return write_json_error(stream, 404, "not found");
+    }
+
+    if let Some(expected) = bearer {
+        let got = request
+            .headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+            .map(|(_, value)| value.as_str());
+        let want = format!("Bearer {expected}");
+        if got != Some(want.as_str()) {
+            return write_json_error(stream, 401, "unauthorized");
+        }
+    }
+
+    let decision_request: DecisionRequest = match serde_json::from_slice(&request.body) {
+        Ok(value) => value,
+        Err(err) => {
+            return write_json_error(stream, 400, &format!("invalid decision JSON: {err}"));
+        }
+    };
+
+    let config = ProviderConfig::from_env()?;
+    let decision = decide(&config, &decision_request)?;
+    let body = serde_json::to_vec(&decision)?;
+    write_response(stream, 200, "application/json", &body)
+}
+
+#[derive(Debug)]
+struct HttpRequest {
+    method: String,
+    path: String,
+    headers: Vec<(String, String)>,
+    body: Vec<u8>,
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Result<HttpRequest> {
+    let mut bytes = Vec::with_capacity(4096);
+    let mut buf = [0u8; 4096];
+    let header_end;
+
+    loop {
+        let n = stream.read(&mut buf).context("read HTTP request")?;
+        if n == 0 {
+            bail!("connection closed before complete HTTP headers");
+        }
+        bytes.extend_from_slice(&buf[..n]);
+        if bytes.len() > MAX_REQUEST_BYTES {
+            bail!("HTTP request exceeds {MAX_REQUEST_BYTES} byte limit");
+        }
+        if let Some(pos) = find_bytes(&bytes, b"\r\n\r\n") {
+            header_end = pos + 4;
+            break;
+        }
+        if bytes.len() > MAX_HEADER_BYTES {
+            bail!("HTTP headers exceed {MAX_HEADER_BYTES} byte limit");
+        }
+    }
+
+    let head = std::str::from_utf8(&bytes[..header_end - 4])
+        .context("HTTP headers are not valid UTF-8")?;
+    let mut lines = head.split("\r\n");
+    let request_line = lines.next().ok_or_else(|| anyhow!("missing request line"))?;
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().ok_or_else(|| anyhow!("missing HTTP method"))?;
+    let path = parts.next().ok_or_else(|| anyhow!("missing HTTP path"))?;
+    let version = parts.next().ok_or_else(|| anyhow!("missing HTTP version"))?;
+    if parts.next().is_some() || !version.starts_with("HTTP/1.") {
+        bail!("unsupported HTTP request line");
+    }
+
+    let mut headers = Vec::new();
+    let mut content_length = 0usize;
+    for line in lines {
+        let (name, value) = line
+            .split_once(':')
+            .ok_or_else(|| anyhow!("malformed HTTP header"))?;
+        let name = name.trim().to_string();
+        let value = value.trim().to_string();
+        if name.eq_ignore_ascii_case("content-length") {
+            content_length = value.parse().context("invalid Content-Length")?;
+        }
+        headers.push((name, value));
+    }
+
+    if content_length > MAX_REQUEST_BYTES.saturating_sub(header_end) {
+        bail!("HTTP body exceeds request size limit");
+    }
+
+    let target_len = header_end + content_length;
+    while bytes.len() < target_len {
+        let want = (target_len - bytes.len()).min(buf.len());
+        let n = stream
+            .read(&mut buf[..want])
+            .context("read HTTP request body")?;
+        if n == 0 {
+            bail!("connection closed before complete HTTP body");
+        }
+        bytes.extend_from_slice(&buf[..n]);
+    }
+
+    Ok(HttpRequest {
+        method: method.to_string(),
+        path: path.split('?').next().unwrap_or(path).to_string(),
+        headers,
+        body: bytes[header_end..target_len].to_vec(),
+    })
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn write_json_error(stream: &mut TcpStream, status: u16, message: &str) -> Result<()> {
+    let body = serde_json::to_vec(&serde_json::json!({ "error": message }))?;
+    write_response(stream, status, "application/json", &body)
+}
+
+fn write_response(stream: &mut TcpStream, status: u16, content_type: &str, body: &[u8]) -> Result<()> {
+    let reason = match status {
+        200 => "OK",
+        204 => "No Content",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        404 => "Not Found",
+        500 => "Internal Server Error",
+        _ => "Response",
+    };
+    let cors = env::var("LEGAIA_AI_CORS_ORIGIN")
+        .ok()
+        .filter(|v| !v.contains('\r') && !v.contains('\n'));
+
+    write!(
+        stream,
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n",
+        body.len()
+    )?;
+    if let Some(origin) = cors {
+        write!(
+            stream,
+            "Access-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nVary: Origin\r\n"
+        )?;
+    }
+    write!(stream, "\r\n")?;
+    stream.write_all(body)?;
+    stream.flush()?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn byte_finder_handles_http_separator() {
+        assert_eq!(find_bytes(b"abc\r\n\r\ndef", b"\r\n\r\n"), Some(3));
+        assert_eq!(find_bytes(b"abc", b"\r\n\r\n"), None);
+    }
+
+    #[test]
+    fn default_bind_is_loopback() {
+        let addr: SocketAddr = DEFAULT_BIND.parse().unwrap();
+        assert!(addr.ip().is_loopback());
+    }
 }

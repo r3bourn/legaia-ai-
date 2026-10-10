@@ -1,0 +1,15 @@
+[package]
+name = "legaia-ai-controller"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "legaia_ai_controller"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+legaia-engine-vm.workspace = true

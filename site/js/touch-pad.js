@@ -40,6 +40,8 @@
     z-index: 2147482999; }
   @media (orientation: portrait) {
     body.lgp-phone .play-canvas-wrap { top: 0; bottom: auto; height: calc(100vw * 3 / 4); width: 100vw; }
+    /* Watching has no controls to make room for: centre the picture. */
+    body.lgp-phone.lgp-watch .play-canvas-wrap { top: 0; bottom: 0; margin: auto; }
   }
   .lgp-pad { display: none; position: fixed; inset: 0; z-index: 2147483100;
     pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; }

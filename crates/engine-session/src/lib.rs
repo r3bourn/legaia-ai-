@@ -13,6 +13,7 @@
 pub mod battle_fx;
 pub mod bgm;
 pub mod boot;
+mod field_anim_semantics;
 pub mod xa_banks;
 
 pub use bgm::AudioBgmDirector;

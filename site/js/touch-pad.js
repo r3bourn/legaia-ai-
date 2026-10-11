@@ -44,6 +44,9 @@
   .lgp-pad { display: none; position: fixed; inset: 0; z-index: 2147483100;
     pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; }
   body.lgp-phone .lgp-pad { display: block; }
+  body.lgp-phone.lgp-watch .lgp-pad .lgp-btn:not(.lgp-exit), body.lgp-watch .lgp-dpad,
+  body.lgp-watch .lgp-toggle { display: none !important; }
+  body.lgp-watch #legaia-ai-panel { display: none !important; }
   .lgp-pad * { pointer-events: auto; touch-action: none; -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent; }
   .lgp-btn { position: absolute; display: flex; align-items: center; justify-content: center;
@@ -227,6 +230,8 @@
       document.exitFullscreen().catch(() => {});
     }
   }
+
+  window.legaiaPhoneMode = (on) => setPhoneMode(on);
 
   function init() {
     if (!document.querySelector('.play-canvas-wrap')) return;

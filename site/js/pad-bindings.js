@@ -210,7 +210,7 @@
    * fork one tiny integration seam while leaving minigames and viewer pages
    * unchanged. */
   if (typeof document !== 'undefined' && /(?:^|\/)play\.html$/.test(location.pathname)) {
-    for (const src of ['js/ai-player.js', 'js/homelab-disc.js', 'js/touch-pad.js']) {
+    for (const src of ['js/ai-player.js', 'js/homelab-disc.js', 'js/touch-pad.js', 'js/watch.js']) {
       const script = document.createElement('script');
       script.src = src;
       script.defer = true;

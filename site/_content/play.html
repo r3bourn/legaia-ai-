@@ -903,6 +903,8 @@
     if (!runtime) return;
     enterWith('the opening', (v) => v.newGame().state);
   }
+  /* Watch mode (js/watch.js) starts the AI's New Game through the same entry. */
+  window.__playStartNewGame = startNewGame;
 
   /* The boot title's (and the post-wipe title's) outcome: 'loaded' = a
    * Continue loaded a save (land it), anything else = New Game. A Continue

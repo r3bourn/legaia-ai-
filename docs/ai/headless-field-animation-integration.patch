@@ -1,0 +1,84 @@
+diff --git a/crates/engine-session/src/boot.rs b/crates/engine-session/src/boot.rs
+--- a/crates/engine-session/src/boot.rs
++++ b/crates/engine-session/src/boot.rs
+@@
+ use legaia_engine_core::world::SceneMode;
+ 
+ use crate::bgm::AudioBgmDirector;
++use crate::field_anim_semantics::FieldAnimSemantics;
+@@
+     /// `true` when the caller drains the world's per-tick presentation queues
+     /// itself after every [`Self::tick`] - the play window does. Otherwise
+     /// the session does it ([`HostQueueMarks`]).
+     host_drains_queues: bool,
++    /// Renderer-independent field-animation state used only when the session
++    /// owns the world frame tail (`host_drains_queues == false`). It installs
++    /// the same NPC clip cursors and player locomotion bank the render hosts
++    /// install while building actor meshes, without owning any render state.
++    field_anim_semantics: FieldAnimSemantics,
+@@
+             mode_seat: legaia_engine_core::mode::ModeSeat::new_at_boot(),
+             host_drains_queues: false,
++            field_anim_semantics: FieldAnimSemantics::default(),
+             queue_marks: HostQueueMarks::default(),
+@@
+     pub fn set_host_drains_queues(&mut self, on: bool) {
++        if self.host_drains_queues != on {
++            self.field_anim_semantics.invalidate_scene();
++        }
+         self.host_drains_queues = on;
+         self.queue_marks = HostQueueMarks::default();
+     }
+@@
+     pub fn begin_new_game(&mut self) {
+         self.host.world.begin_new_game_seeded(
+             self.starting_party.as_ref(),
+             self.starting_inventory.as_ref(),
+         );
++        // A reset can leave the same scene label loaded while clearing the
++        // world's clip cursors, so scene-name comparison alone is not enough.
++        self.field_anim_semantics.invalidate_scene();
+     }
+@@
+     fn run_world_frame_tail(&mut self) {
+         // The summon spawn request's seat: both play hosts bind the creature
+         // mesh and seat it here, and a directed module's walk arm reads the
+         // seat, so a headless run seats it unrendered.
+         self.host.world.seat_summon_creature_unrendered();
+-        let tail = self.host.world.step_world_frame_tail(None, None, |_| None);
++        let tail = self.field_anim_semantics.step_world_tail(&mut self.host);
+@@
+     pub fn tick(&mut self) -> Result<SceneTickEvent> {
+         // The hosts' per-tick queue duty, for a caller that does not perform
+         // it: what the previous tick queued and nobody took is gone before
+         // this one runs, as it is in both play hosts.
+         if !self.host_drains_queues {
+             std::mem::take(&mut self.queue_marks).drop_stale(&mut self.host.world);
++            // Bind scene-entry NPC cursors and the player's locomotion bank
++            // before the first simulation tick. `run_world_frame_tail` calls
++            // refresh again after the world tick so a door/FMV transition
++            // that happened during that tick is bound before its next frame.
++            self.field_anim_semantics.refresh(&mut self.host);
+         }
+@@
+     pub fn enter_field_live(&mut self, scene: &str, opts: &FieldLiveOpts) -> Result<SceneMode> {
+@@
+         match self.host.enter_field_scene(scene, 0) {
+@@
+         }
++        if !self.host_drains_queues {
++            // Direct entries are not SceneEntered events, and a same-label
++            // re-entry must still rebuild semantic animation state.
++            self.field_anim_semantics.invalidate_scene();
++            self.field_anim_semantics.refresh(&mut self.host);
++        }
+@@
+     pub fn enter_world_map_live(&mut self, scene: &str, opts: &FieldLiveOpts) -> Result<SceneMode> {
+@@
+         match self.host.enter_world_map_scene(scene) {
+@@
+         }
++        if !self.host_drains_queues {
++            self.field_anim_semantics.invalidate_scene();
++            self.field_anim_semantics.refresh(&mut self.host);
++        }

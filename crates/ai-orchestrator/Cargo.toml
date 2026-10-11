@@ -1,0 +1,15 @@
+[package]
+name = "legaia-ai-orchestrator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "legaia_ai_orchestrator"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+legaia-ai-controller.workspace = true
+legaia-ai-guide.workspace = true

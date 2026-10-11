@@ -1,8 +1,12 @@
 use anyhow::{Context, Result, anyhow, bail};
 use legaia_ai_broker::{DecisionRequest, ProviderConfig, decide};
+use legaia_ai_controller::TelemetrySnapshot;
+use legaia_ai_orchestrator::{Directive, Orchestrator, OrchestrationStep};
 use std::env;
+use std::fs;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::Path;
 use std::time::Duration;
 
 const DEFAULT_BIND: &str = "127.0.0.1:4317";
@@ -34,12 +38,13 @@ fn print_help() {
          \n\
          Usage:\n\
            legaia-ai-broker            Read one DecisionRequest JSON from stdin\n\
-           legaia-ai-broker serve      Run the local HTTP decision service\n\
+           legaia-ai-broker serve      Run the local HTTP decision/orchestration service\n\
          \n\
          Server environment:\n\
            LEGAIA_AI_BIND              Bind address (default {DEFAULT_BIND})\n\
            LEGAIA_AI_BEARER_TOKEN      Required when binding a non-loopback address\n\
-           LEGAIA_AI_CORS_ORIGIN       Optional exact Access-Control-Allow-Origin value\n"
+           LEGAIA_AI_CORS_ORIGIN       Optional exact Access-Control-Allow-Origin value\n\
+           LEGAIA_GUIDE_PATH           Optional local YAML/JSON checkpoint guide\n"
     );
 }
 
@@ -67,6 +72,7 @@ fn run_server() -> Result<()> {
     let bearer = env::var("LEGAIA_AI_BEARER_TOKEN")
         .ok()
         .filter(|v| !v.trim().is_empty());
+    let mut orchestrator = load_orchestrator()?;
 
     if !addr.ip().is_loopback() && bearer.is_none() {
         bail!(
@@ -76,12 +82,19 @@ fn run_server() -> Result<()> {
 
     let listener = TcpListener::bind(addr)
         .with_context(|| format!("failed to bind AI broker to {addr}"))?;
-    eprintln!("legaia-ai-broker: listening on http://{addr}");
+    eprintln!(
+        "legaia-ai-broker: listening on http://{addr} (guide={})",
+        if orchestrator.is_some() { "loaded" } else { "none" }
+    );
 
     for incoming in listener.incoming() {
         match incoming {
             Ok(mut stream) => {
-                if let Err(err) = handle_connection(&mut stream, bearer.as_deref()) {
+                if let Err(err) = handle_connection(
+                    &mut stream,
+                    bearer.as_deref(),
+                    &mut orchestrator,
+                ) {
                     eprintln!("legaia-ai-broker: request error: {err:#}");
                     let _ = write_json_error(&mut stream, 500, "internal broker error");
                 }
@@ -93,7 +106,35 @@ fn run_server() -> Result<()> {
     Ok(())
 }
 
-fn handle_connection(stream: &mut TcpStream, bearer: Option<&str>) -> Result<()> {
+fn load_orchestrator() -> Result<Option<Orchestrator>> {
+    let Some(path) = env::var("LEGAIA_GUIDE_PATH")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+    else {
+        return Ok(None);
+    };
+
+    let text = fs::read_to_string(&path)
+        .with_context(|| format!("failed to read LEGAIA_GUIDE_PATH `{path}`"))?;
+    let orchestrator = if Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("json"))
+    {
+        Orchestrator::from_json(&text)
+    } else {
+        Orchestrator::from_yaml(&text)
+    }
+    .with_context(|| format!("failed to load checkpoint guide `{path}`"))?;
+
+    Ok(Some(orchestrator))
+}
+
+fn handle_connection(
+    stream: &mut TcpStream,
+    bearer: Option<&str>,
+    orchestrator: &mut Option<Orchestrator>,
+) -> Result<()> {
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
         .context("set read timeout")?;
@@ -108,11 +149,11 @@ fn handle_connection(stream: &mut TcpStream, bearer: Option<&str>) -> Result<()>
     }
 
     if request.method == "GET" && request.path == "/health" {
-        return write_response(stream, 200, "application/json", br#"{"ok":true}"#);
-    }
-
-    if request.method != "POST" || request.path != "/decision" {
-        return write_json_error(stream, 404, "not found");
+        let body = serde_json::to_vec(&serde_json::json!({
+            "ok": true,
+            "guide_loaded": orchestrator.is_some(),
+        }))?;
+        return write_response(stream, 200, "application/json", &body);
     }
 
     if let Some(expected) = bearer {
@@ -127,7 +168,17 @@ fn handle_connection(stream: &mut TcpStream, bearer: Option<&str>) -> Result<()>
         }
     }
 
-    let decision_request: DecisionRequest = match serde_json::from_slice(&request.body) {
+    match (request.method.as_str(), request.path.as_str()) {
+        ("POST", "/decision") => handle_decision(stream, &request.body),
+        ("POST", "/guide") => handle_guide(stream, &request.body, orchestrator),
+        ("POST", "/step") => handle_step(stream, &request.body, orchestrator),
+        ("POST", "/guide/advance") => handle_guide_advance(stream, orchestrator),
+        _ => write_json_error(stream, 404, "not found"),
+    }
+}
+
+fn handle_decision(stream: &mut TcpStream, body: &[u8]) -> Result<()> {
+    let decision_request: DecisionRequest = match serde_json::from_slice(body) {
         Ok(value) => value,
         Err(err) => {
             return write_json_error(stream, 400, &format!("invalid decision JSON: {err}"));
@@ -137,6 +188,95 @@ fn handle_connection(stream: &mut TcpStream, bearer: Option<&str>) -> Result<()>
     let config = ProviderConfig::from_env()?;
     let decision = decide(&config, &decision_request)?;
     let body = serde_json::to_vec(&decision)?;
+    write_response(stream, 200, "application/json", &body)
+}
+
+fn parse_telemetry(body: &[u8]) -> std::result::Result<TelemetrySnapshot, serde_json::Error> {
+    serde_json::from_slice(body)
+}
+
+fn guide_step(
+    body: &[u8],
+    orchestrator: &mut Option<Orchestrator>,
+) -> std::result::Result<OrchestrationStep, String> {
+    let state = parse_telemetry(body).map_err(|e| format!("invalid telemetry JSON: {e}"))?;
+    let Some(orchestrator) = orchestrator.as_mut() else {
+        return Err("no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH".into());
+    };
+    orchestrator
+        .step(&state)
+        .map_err(|e| format!("guide orchestration failed: {e:#}"))
+}
+
+fn handle_guide(
+    stream: &mut TcpStream,
+    body: &[u8],
+    orchestrator: &mut Option<Orchestrator>,
+) -> Result<()> {
+    if orchestrator.is_none() {
+        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+    }
+    let step = match guide_step(body, orchestrator) {
+        Ok(step) => step,
+        Err(err) => return write_json_error(stream, 400, &err),
+    };
+    let body = serde_json::to_vec(&step)?;
+    write_response(stream, 200, "application/json", &body)
+}
+
+fn handle_step(
+    stream: &mut TcpStream,
+    body: &[u8],
+    orchestrator: &mut Option<Orchestrator>,
+) -> Result<()> {
+    if orchestrator.is_none() {
+        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+    }
+    let state = match parse_telemetry(body) {
+        Ok(state) => state,
+        Err(err) => return write_json_error(stream, 400, &format!("invalid telemetry JSON: {err}")),
+    };
+    let step = match orchestrator.as_mut().expect("checked").step(&state) {
+        Ok(step) => step,
+        Err(err) => return write_json_error(stream, 400, &format!("guide orchestration failed: {err:#}")),
+    };
+
+    let decision = if let Directive::NeedDecision {
+        objective,
+        walkthrough_context,
+        ..
+    } = &step.directive
+    {
+        let request = DecisionRequest {
+            objective: objective.clone(),
+            state: serde_json::to_value(&state)?,
+            walkthrough_context: Some(walkthrough_context.clone()),
+        };
+        Some(decide(&ProviderConfig::from_env()?, &request)?)
+    } else {
+        None
+    };
+
+    let body = serde_json::to_vec(&serde_json::json!({
+        "guide": step,
+        "decision": decision,
+    }))?;
+    write_response(stream, 200, "application/json", &body)
+}
+
+fn handle_guide_advance(
+    stream: &mut TcpStream,
+    orchestrator: &mut Option<Orchestrator>,
+) -> Result<()> {
+    let Some(orchestrator) = orchestrator.as_mut() else {
+        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+    };
+    let advanced = orchestrator.manual_advance();
+    let body = serde_json::to_vec(&serde_json::json!({
+        "advanced": advanced,
+        "checkpoint_index": orchestrator.checkpoint_index(),
+        "finished": orchestrator.is_finished(),
+    }))?;
     write_response(stream, 200, "application/json", &body)
 }
 
@@ -238,6 +378,7 @@ fn write_response(stream: &mut TcpStream, status: u16, content_type: &str, body:
         401 => "Unauthorized",
         404 => "Not Found",
         500 => "Internal Server Error",
+        503 => "Service Unavailable",
         _ => "Response",
     };
     let cors = env::var("LEGAIA_AI_CORS_ORIGIN")
@@ -275,5 +416,10 @@ mod tests {
     fn default_bind_is_loopback() {
         let addr: SocketAddr = DEFAULT_BIND.parse().unwrap();
         assert!(addr.ip().is_loopback());
+    }
+
+    #[test]
+    fn telemetry_parser_rejects_non_snapshot_json() {
+        assert!(parse_telemetry(br#"{"x":1}"#).is_err());
     }
 }

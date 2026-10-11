@@ -10,6 +10,7 @@ AI_PACKAGES=(
   legaia-ai-battle
   legaia-ai-orchestrator
   legaia-ai-broker
+  legaia-ai-pad-player
 )
 
 printf '\n== Legaia AI foundation verification ==\n'

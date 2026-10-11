@@ -21,6 +21,12 @@ pub enum GameMode {
     Unknown,
 }
 
+impl Default for GameMode {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Vec3i {
     pub x: i32,

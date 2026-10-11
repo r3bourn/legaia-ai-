@@ -315,6 +315,14 @@
       });
       if (!response.ok) throw new Error(await response.text() || ('HTTP ' + response.status));
       const result = await response.json();
+
+      // The viewer may have hidden the tab, taken manual control, or loaded a
+      // new runtime while the provider was thinking. The Rust lease already
+      // makes stale input harmless; this guard prevents even queueing it.
+      if (!state.active || rt !== state.runtime || !viewerPresent()) return;
+      const freshStatus = parseJson(() => rt.ai_status_json(now()), null);
+      if (!freshStatus || !freshStatus.authorized) return;
+
       const guide = result.guide || {};
       if (state.objectiveEl) state.objectiveEl.textContent = 'Objective: ' + (guide.objective || 'complete');
       if (state.checkpointEl) state.checkpointEl.textContent = 'Checkpoint: ' + (guide.checkpoint_id || '-');

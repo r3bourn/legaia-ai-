@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn outside_battle_does_nothing() {
-        let world = World::default();
+        let world = World::new();
         assert_eq!(
             routine_battle_step(&world, RoutineBattlePolicy::default()),
             BattleDirective::NotInBattle
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn round_prompt_starts_with_left_begin() {
-        let mut world = World::default();
+        let mut world = World::new();
         world.mode = SceneMode::Battle;
         world.party.party_count = 1;
         world.battle.command = Some(BattleCommandSession::new_round_open(0, 0, false));
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn menu_chooses_attack_with_left() {
-        let mut world = World::default();
+        let mut world = World::new();
         world.mode = SceneMode::Battle;
         world.party.party_count = 1;
         world.battle.command = Some(BattleCommandSession::new(0, 0));

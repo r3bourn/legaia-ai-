@@ -1,0 +1,801 @@
+[meta]
+schema = "legaia-ai-progression-v1"
+spine = "scripts/replays/full_game_spine.toml"
+profile = "continuous-main-story"
+item_id_space = "shared-u8"
+
+[sources]
+repo = [
+  "data/gamedata/bosses.toml",
+  "data/gamedata/enemies.toml",
+  "data/gamedata/shops.toml",
+  "data/gamedata/items.toml",
+  "data/gamedata/accessories.toml",
+]
+gamefaqs = [
+  "meth962 FAQ 53721",
+  "BSauls Seru Guide FAQ 4737",
+  "KBoon FAQ 4722",
+  "PsychoPenguin FAQ 13719",
+  "MStaMaria Boss Guide FAQ 4732",
+]
+
+[[milestone]]
+id = "new_game"
+scene = "opdeene"
+level_min = 1
+level_max = 1
+level_basis = "story start"
+buys = []
+equipment = []
+must_get = []
+seru = []
+bosses = []
+notes = "Cold New Game only. Never seed this profile from a save or state."
+
+[[milestone]]
+id = "rim_elm"
+scene = "town01"
+level_min = 3
+level_max = 4
+level_basis = "guide: Rim Elm mist is an early safe grind with free healing"
+buys = []
+equipment = [
+  { party = "vahn", slot = "body", id = 0x43, name = "Hunter Clothes", priority = "high", reason = "Mei gives it before departure." },
+]
+must_get = [
+  { kind = "item", id = 0x77, name = "Healing Leaf", reason = "Early healing reserve." },
+  { kind = "item", id = 0x7C, name = "Magic Leaf", reason = "Early MP reserve." },
+  { kind = "item", id = 0xAC, name = "Mei's Pendant", reason = "Unique HP accessory from Mei." },
+]
+seru = ["Gimard"]
+bosses = []
+notes = "Use the mist attack on Rim Elm to learn/absorb Gimard before the story removes this early opportunity."
+
+[[milestone]]
+id = "tetsu_spar"
+scene = "town01"
+level_min = 3
+level_max = 4
+level_basis = "derived: same Rim Elm training window"
+buys = []
+equipment = []
+must_get = []
+seru = ["Gimard"]
+bosses = []
+notes = "Learn a reliable Vahn arts string during the spar; no purchases are needed for the training fight."
+
+[[milestone]]
+id = "mist_rim_elm"
+scene = "town0b"
+level_min = 4
+level_max = 4
+level_basis = "guide: leave the opening region around level 3-4"
+buys = [
+  { id = 0x34, name = "Warrior Seal", target_qty = 1, priority = "high", reason = "Cheap early Vahn head upgrade." },
+  { id = 0x59, name = "Warrior Boots", target_qty = 1, priority = "high", reason = "Cheap early Vahn boot upgrade." },
+  { id = 0xD6, name = "Cure Amulet", target_qty = 1, priority = "medium", reason = "Venom protection remains useful through early dungeons." },
+  { id = 0x77, name = "Healing Leaf", target_qty = 10, priority = "high", reason = "Maintain a basic healing reserve." },
+  { id = 0x7E, name = "Antidote", target_qty = 3, priority = "medium", reason = "Status recovery until better amulets are available." },
+]
+equipment = [
+  { party = "vahn", slot = "head", id = 0x34, name = "Warrior Seal", priority = "high", reason = "Early defense/intelligence upgrade." },
+  { party = "vahn", slot = "boots", id = 0x59, name = "Warrior Boots", priority = "high", reason = "Early attack/lower-defense upgrade." },
+]
+must_get = []
+seru = ["Gimard"]
+bosses = []
+notes = "Do not buy Survival Knife here; the walkthrough route gives one free in Drake Castle."
+
+[[milestone]]
+id = "hunters_spring"
+scene = "izumi"
+level_min = 4
+level_max = 4
+level_basis = "guide: free spring makes this a safe top-off point"
+buys = [
+  { id = 0xD4, name = "Defender Chain", target_qty = 1, priority = "medium", reason = "Useful generic evasion accessory for early bosses." },
+]
+equipment = []
+must_get = [
+  { kind = "item", id = 0xFE, name = "Point Card", reason = "Return to Rim Elm after first leaving and collect it; later purchases accrue points." },
+]
+seru = []
+bosses = []
+notes = "Use the spring to restore HP/MP before Drake Castle."
+
+[[milestone]]
+id = "drake_castle"
+scene = "dolk"
+level_min = 4
+level_max = 5
+level_basis = "derived: normal encounters plus free healing are sufficient before Noa joins"
+buys = []
+equipment = [
+  { party = "vahn", slot = "weapon", id = 0x22, name = "Survival Knife", priority = "high", reason = "Free castle treasure; do not buy it earlier." },
+]
+must_get = [
+  { kind = "item", id = 0x22, name = "Survival Knife", reason = "Free weapon upgrade in Drake Castle." },
+  { kind = "item", id = 0x8F, name = "Fire Book I", reason = "Vahn Hyper Art book." },
+]
+seru = ["Gimard"]
+bosses = []
+notes = "Collect the castle keys and free equipment rather than spending scarce early gold."
+
+[[milestone]]
+id = "rim_elm_restored"
+scene = "town0c"
+level_min = 5
+level_max = 5
+level_basis = "derived: maintain pace after Drake"
+buys = [
+  { id = 0x28, name = "Nail Glove", target_qty = 1, priority = "high", reason = "Cheap Noa weapon upgrade from Drake shop." },
+  { id = 0x39, name = "Guardian Clip", target_qty = 1, priority = "high", reason = "Noa head upgrade." },
+  { id = 0x60, name = "Electric Shoes", target_qty = 1, priority = "high", reason = "Noa boot upgrade." },
+  { id = 0x77, name = "Healing Leaf", target_qty = 12, priority = "high", reason = "Keep a healing reserve for the split-party mountain stretch." },
+]
+equipment = [
+  { party = "noa", slot = "weapon", id = 0x28, name = "Nail Glove", priority = "high", reason = "First purchasable Noa weapon." },
+  { party = "noa", slot = "head", id = 0x39, name = "Guardian Clip", priority = "high", reason = "First Noa head upgrade." },
+  { party = "noa", slot = "boots", id = 0x60, name = "Electric Shoes", priority = "high", reason = "First Noa footwear upgrade." },
+]
+must_get = []
+seru = []
+bosses = []
+notes = "Skip Fighting Robe purchase if the free story copy is available."
+
+[[milestone]]
+id = "ravine"
+scene = "keikoku"
+level_min = 5
+level_max = 6
+level_basis = "derived: prepare both story halves for Mt. Rikuroa"
+buys = []
+equipment = []
+must_get = []
+seru = []
+bosses = []
+notes = "Preserve healing items; Noa has access to free recovery during her training route."
+
+[[milestone]]
+id = "snowdrift_cave"
+scene = "cave01"
+level_min = 5
+level_max = 6
+level_basis = "derived: Caruban target is level 6-7"
+buys = []
+equipment = []
+must_get = [
+  { kind = "item", id = 0xA3, name = "Healing Shroom", reason = "Free cave healing pickups; preserve bought leaves when possible." },
+]
+seru = []
+bosses = []
+notes = "Use Terra's recovery while training Noa; do not burn consumables unnecessarily."
+
+[[milestone]]
+id = "mt_rikuroa"
+scene = "rikuroa"
+level_min = 6
+level_max = 7
+level_basis = "repo-boss-table: Caruban 6-7"
+buys = []
+equipment = [
+  { party = "vahn", slot = "weapon", id = 0x1A, name = "Vahn Fist", priority = "high", reason = "Free mountain weapon upgrade before Caruban." },
+]
+must_get = [
+  { kind = "item", id = 0x1A, name = "Vahn Fist", reason = "Free Vahn weapon immediately before Caruban." },
+  { kind = "item", id = 0xC7, name = "Scarlet Jewel", reason = "Useful defense accessory found on the mountain." },
+]
+seru = ["Vera"]
+bosses = [
+  { name = "Caruban", element = "fire", weakness = "water", guard = "No strong fire guard is required this early; Spirit before heavy turns.", healing = "Keep Vahn/Noa above roughly half HP and use Vera/Healing items as needed.", tactics = "Physical Arts plus healing; do not enter underleveled." },
+]
+notes = "The save/heal point before the summit is the preferred grind checkpoint if below target."
+
+[[milestone]]
+id = "caruban_defeated"
+scene = "rikuroa"
+level_min = 7
+level_max = 7
+level_basis = "post-boss"
+buys = []
+equipment = []
+must_get = [
+  { kind = "item", id = 0x7A, name = "Healing Bloom", reason = "Caruban guaranteed drop." },
+]
+seru = ["Vera"]
+bosses = []
+notes = "Proceed; avoid unnecessary grind until Gala joins and three-person encounters improve XP efficiency."
+
+[[milestone]]
+id = "drake_castle_revisited"
+scene = "dolk2"
+level_min = 8
+level_max = 9
+level_basis = "repo-boss-table: Viguro pair 8-9"
+buys = [
+  { id = 0x29, name = "Crimson Nails", target_qty = 1, priority = "high", reason = "Noa weapon upgrade at Biron." },
+  { id = 0x2E, name = "Survival Club", target_qty = 1, priority = "high", reason = "Gala's first meaningful weapon." },
+  { id = 0x35, name = "Ironman Seal", target_qty = 1, priority = "high", reason = "Vahn head upgrade." },
+  { id = 0x44, name = "Savior Clothes", target_qty = 1, priority = "high", reason = "Vahn armor upgrade." },
+  { id = 0x5A, name = "Ironman Boots", target_qty = 1, priority = "high", reason = "Vahn footwear upgrade." },
+  { id = 0x3F, name = "Power Earring", target_qty = 1, priority = "high", reason = "Gala head upgrade." },
+  { id = 0x53, name = "Power Plate", target_qty = 1, priority = "high", reason = "Gala armor upgrade." },
+  { id = 0x66, name = "Power Shoes", target_qty = 1, priority = "high", reason = "Gala footwear upgrade." },
+  { id = 0xDE, name = "Deep Sea Jewel", target_qty = 3, priority = "critical", reason = "Water defense for Zeto; one per party member." },
+  { id = 0x78, name = "Healing Flower", target_qty = 8, priority = "high", reason = "Upgrade the party's healing reserve." },
+  { id = 0x7A, name = "Healing Bloom", target_qty = 5, priority = "high", reason = "Emergency larger heals." },
+  { id = 0x7C, name = "Magic Leaf", target_qty = 5, priority = "medium", reason = "MP reserve for Vera and damage Seru." },
+]
+equipment = [
+  { party = "noa", slot = "weapon", id = 0x29, name = "Crimson Nails", priority = "high", reason = "Upgrade before Voz/Zeto." },
+  { party = "gala", slot = "weapon", id = 0x2E, name = "Survival Club", priority = "high", reason = "Gala weapon baseline." },
+  { party = "vahn", slot = "head", id = 0x35, name = "Ironman Seal", priority = "high", reason = "Upgrade before Voz/Zeto." },
+  { party = "vahn", slot = "body", id = 0x44, name = "Savior Clothes", priority = "high", reason = "Upgrade before Voz/Zeto." },
+  { party = "gala", slot = "head", id = 0x3F, name = "Power Earring", priority = "high", reason = "Gala defense/intelligence." },
+  { party = "gala", slot = "body", id = 0x53, name = "Power Plate", priority = "high", reason = "Gala defense." },
+  { party = "gala", slot = "boots", id = 0x66, name = "Power Shoes", priority = "high", reason = "Gala lower defense/attack." },
+]
+must_get = []
+seru = ["Gimard Lv2", "Theeder"]
+bosses = []
+notes = "The Deep Sea Jewel purchase is the important strategic spend before the first Mist Generator."
+
+[[milestone]]
+id = "west_voz_forest"
+scene = "vell"
+level_min = 8
+level_max = 9
+level_basis = "derived: Viguro pair 8-9 and Zeto dungeon 11-12"
+buys = []
+equipment = [
+  { party = "noa", slot = "weapon", id = 0x1C, name = "Noa Feral", priority = "high", reason = "Free West Voz weapon." },
+]
+must_get = [
+  { kind = "item", id = 0x1C, name = "Noa Feral", reason = "Free Noa-specific weapon in West Voz Forest." },
+]
+seru = ["Vera", "Nighto"]
+bosses = []
+notes = "Absorb Nighto if encountered; it remains useful for status/instant-kill utility."
+
+[[milestone]]
+id = "voz_forest"
+scene = "vozz"
+level_min = 9
+level_max = 10
+level_basis = "repo-boss-table: Viguro pair 8-9; bridge to Zeto 11-12"
+buys = []
+equipment = []
+must_get = [
+  { kind = "item", id = 0x2E, name = "Survival Club", reason = "A free copy is available in East Voz if Gala does not already own one." },
+]
+seru = ["Gizam", "Viguro"]
+bosses = [
+  { name = "Viguro x2", element = "thunder", weakness = "no simple opposite-element weakness", guard_id = 0xD4, guard = "Defender Chain", healing = "Keep Gala able to heal; the pair can focus one target quickly.", tactics = "Focus one Viguro down before splitting damage. Absorb is optional because later Viguro remain available." },
+]
+notes = "After the forest, use Biron/Wind Cave recovery and grind only enough to reach the first Mist Generator target."
+
+[[milestone]]
+id = "zeto_dungeon"
+scene = "garmel"
+level_min = 11
+level_max = 12
+level_basis = "repo-boss-table: Songi I 11; Zeto 11-12"
+buys = [
+  { id = 0xDE, name = "Deep Sea Jewel", target_qty = 3, priority = "critical", reason = "Ensure all three party members can resist Zeto's water damage." },
+  { id = 0x78, name = "Healing Flower", target_qty = 10, priority = "high", reason = "Sustain through Songi and Zeto." },
+  { id = 0x80, name = "Phoenix", target_qty = 3, priority = "high", reason = "Revive insurance." },
+]
+equipment = [
+  { party = "vahn", slot = "weapon", id = 0x24, name = "Short Sword", priority = "high", reason = "Free dungeon upgrade." },
+  { party = "vahn", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense for Zeto." },
+  { party = "noa", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense for Zeto." },
+  { party = "gala", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense for Zeto." },
+]
+must_get = [
+  { kind = "item", id = 0x95, name = "Thunder Book I", reason = "Gala Hyper Art book near dungeon entrance." },
+  { kind = "item", id = 0x24, name = "Short Sword", reason = "Free Vahn weapon." },
+  { kind = "item", id = 0xE8, name = "Mettle Ring", reason = "Guaranteed reward from Songi I." },
+]
+seru = ["Zenoir", "Vera", "Gizam", "Nighto", "Gimard Lv2", "Theeder Lv2"]
+bosses = [
+  { name = "Songi I", element = "dark", weakness = "light", guard_id = 0xD4, guard = "Defender Chain", healing = "Gala should have Vera and enough MP to recover from Hyper Wave.", tactics = "Solo Gala fight; use Spirit when pressured and heal before returning to offense." },
+]
+notes = "Do not leave the dungeon before Gala has the Seru coverage needed for reliable solo healing."
+
+[[milestone]]
+id = "zeto_dungeon_late"
+scene = "garmel"
+level_min = 11
+level_max = 12
+level_basis = "repo-boss-table: Zeto 11-12"
+buys = []
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense." },
+  { party = "noa", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense." },
+  { party = "gala", slot = "goods1", id = 0xDE, name = "Deep Sea Jewel", priority = "critical", reason = "Water defense." },
+]
+must_get = []
+seru = ["Zenoir", "Vera", "Gizam", "Nighto"]
+bosses = [
+  { name = "Zeto", element = "water", weakness = "fire", guard_id = 0xDE, guard = "Deep Sea Jewel", healing = "Heal immediately after Big Wave if required; keep a Phoenix reserve.", tactics = "Call Wave telegraphs Big Wave. Spirit the whole party on the following turn, then resume Arts/fire damage." },
+]
+notes = "The guide and community recommendations consistently emphasize Deep Sea Jewels and the Call Wave telegraph."
+
+[[milestone]]
+id = "sky_gardens"
+scene = "teien"
+level_min = 13
+level_max = 16
+level_basis = "repo-boss-table: Berserker 13; community guide range commonly 13-16"
+buys = [
+  { id = 0xD8, name = "Forest Amulet", target_qty = 1, priority = "high", reason = "Rot protection for Berserker." },
+  { id = 0xDD, name = "Earth Jewel", target_qty = 1, priority = "medium", reason = "Earth defense for Berserker." },
+  { id = 0xD7, name = "Pure Amulet", target_qty = 1, priority = "medium", reason = "General venom/toxic protection." },
+  { id = 0x78, name = "Healing Flower", target_qty = 10, priority = "high", reason = "Maintain healing stock." },
+]
+equipment = [
+  { party = "gala", slot = "goods1", id = 0xD8, name = "Forest Amulet", priority = "high", reason = "Rot protection on the slow healer/tank is valuable." },
+]
+must_get = [
+  { kind = "item", id = 0x90, name = "Fire Book II", reason = "Guaranteed Berserker drop." },
+]
+seru = ["Swordie", "Nighto Lv2"]
+bosses = [
+  { name = "Berserker", element = "earth", weakness = "wind", guard_id = 0xD8, guard = "Forest Amulet", healing = "Do not allow Rot/status attrition to compound; heal before HP falls into one-hit range.", tactics = "Nighto can disable/instantly kill Berserker, but a normal win should use Wind/Arts and status protection." },
+]
+notes = "Forest Amulet addresses the dangerous Rot status; Earth Jewel reduces elemental damage but status protection is the higher priority."
+
+[[milestone]]
+id = "fire_path"
+scene = "tunnelb"
+level_min = 16
+level_max = 19
+level_basis = "repo-boss-table: Xain 19; some community runs succeed around 15-16"
+buys = [
+  { id = 0x25, name = "Force Blade", target_qty = 1, priority = "high", reason = "Major Vahn weapon upgrade." },
+  { id = 0x1D, name = "Hard Beat", target_qty = 1, priority = "high", reason = "Major Noa weapon upgrade." },
+  { id = 0x36, name = "Expert Seal", target_qty = 1, priority = "high", reason = "Vahn head upgrade." },
+  { id = 0x46, name = "Ironman Armor", target_qty = 1, priority = "high", reason = "Vahn body upgrade." },
+  { id = 0x3B, name = "Jeweled Clip", target_qty = 1, priority = "high", reason = "Noa head upgrade." },
+  { id = 0x4E, name = "Scarlet Robe", target_qty = 1, priority = "high", reason = "Noa armor upgrade." },
+  { id = 0x62, name = "Olive Shoes", target_qty = 1, priority = "high", reason = "Noa footwear upgrade." },
+  { id = 0x54, name = "Fighting Plate", target_qty = 1, priority = "high", reason = "Gala armor upgrade." },
+  { id = 0x67, name = "Fighting Boots", target_qty = 1, priority = "high", reason = "Gala footwear upgrade." },
+  { id = 0xDD, name = "Earth Jewel", target_qty = 3, priority = "high", reason = "Earth defense for Xain." },
+  { id = 0x80, name = "Phoenix", target_qty = 5, priority = "high", reason = "Midgame revive reserve." },
+]
+equipment = [
+  { party = "vahn", slot = "weapon", id = 0x25, name = "Force Blade", priority = "high", reason = "Best readily purchasable Vahn weapon at this stage." },
+  { party = "noa", slot = "weapon", id = 0x1D, name = "Hard Beat", priority = "high", reason = "Noa-specific weapon upgrade." },
+  { party = "gala", slot = "body", id = 0x54, name = "Fighting Plate", priority = "high", reason = "Gala defense." },
+]
+must_get = [
+  { kind = "item", id = 0x20, name = "Gala Mace", reason = "Free Fire Path weapon; equip over weaker clubs." },
+  { kind = "item", id = 0x93, name = "Wind Book II", reason = "Guaranteed Xain drop." },
+]
+seru = ["Nova", "Gola Gola", "Freed"]
+bosses = [
+  { name = "Xain", element = "earth", weakness = "wind", guard_id = 0xDD, guard = "Earth Jewel", healing = "Keep everyone comfortably above the last observed heavy-hit damage.", tactics = "His power-up/strength-saving message telegraphs Terio Punch; Spirit the party on the next turn." },
+]
+notes = "The lower end of the level range is viable with good equipment; the upper end is the repository's conservative boss target."
+
+[[milestone]]
+id = "mt_letona"
+scene = "retona"
+level_min = 21
+level_max = 22
+level_basis = "repo-boss-table: Songi II 22"
+buys = [
+  { id = 0xE3, name = "Ebony Jewel", target_qty = 2, priority = "high", reason = "Dark defense for Songi/Van Saryu/Dohati." },
+  { id = 0x79, name = "Healing Berry", target_qty = 5, priority = "high", reason = "Upgrade healing capacity for late Sebucus bosses." },
+]
+equipment = [
+  { party = "gala", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense for Songi II." },
+]
+must_get = [
+  { kind = "item", id = 0x96, name = "Thunder Book II", reason = "Guaranteed Songi II drop." },
+]
+seru = ["Viguro Lv2", "Mushura"]
+bosses = [
+  { name = "Songi II", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Keep Gala ready to heal; Songi can punish a low member quickly.", tactics = "Use strong Arts/Light Seru and Spirit when incoming damage spikes." },
+]
+notes = "Octam's elemental-jewel shop makes Ebony Jewel available before this fight."
+
+[[milestone]]
+id = "ratayu"
+scene = "retock"
+level_min = 22
+level_max = 23
+level_basis = "repo-boss-table: Van Saryu 23"
+buys = [
+  { id = 0x25, name = "Force Blade", target_qty = 1, priority = "high", reason = "Buy if still missing." },
+  { id = 0x1D, name = "Hard Beat", target_qty = 1, priority = "high", reason = "Buy if still missing." },
+  { id = 0x31, name = "Survival Axe", target_qty = 1, priority = "high", reason = "Large Gala weapon upgrade." },
+  { id = 0x5C, name = "Expert Boots", target_qty = 1, priority = "medium", reason = "Vahn footwear upgrade." },
+  { id = 0x4F, name = "Tempest Robe", target_qty = 1, priority = "high", reason = "Noa body upgrade." },
+  { id = 0x55, name = "Valor Plate", target_qty = 1, priority = "high", reason = "Gala body upgrade." },
+  { id = 0xC9, name = "Guardian Ring", target_qty = 1, priority = "high", reason = "Strong general defense accessory." },
+  { id = 0xC0, name = "Life Ring", target_qty = 1, priority = "medium", reason = "HP buffer for boss fights." },
+  { id = 0xE3, name = "Ebony Jewel", target_qty = 3, priority = "high", reason = "Dark defense for Van Saryu/Dohati." },
+  { id = 0x79, name = "Healing Berry", target_qty = 8, priority = "high", reason = "Reliable midgame healing." },
+  { id = 0x80, name = "Phoenix", target_qty = 5, priority = "high", reason = "Revive reserve." },
+]
+equipment = [
+  { party = "gala", slot = "weapon", id = 0x31, name = "Survival Axe", priority = "high", reason = "Substantial attack increase." },
+  { party = "noa", slot = "body", id = 0x4F, name = "Tempest Robe", priority = "high", reason = "Substantial defense upgrade." },
+  { party = "gala", slot = "body", id = 0x55, name = "Valor Plate", priority = "high", reason = "Substantial defense upgrade." },
+]
+must_get = []
+seru = ["Viguro Lv2", "Kemaro"]
+bosses = [
+  { name = "Van Saryu", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Earthquake can pressure the whole party; restore multiple members before resuming offense.", tactics = "Use Light damage/Arts; keep one member available to heal after party-wide attacks." },
+]
+notes = "Ratayu shops remain useful later; do not bankrupt the party buying every armament if a found upgrade is close."
+
+[[milestone]]
+id = "dohati_castle"
+scene = "dohaty"
+level_min = 23
+level_max = 24
+level_basis = "repo-boss-table: Dohati 24"
+buys = [
+  { id = 0xD7, name = "Pure Amulet", target_qty = 1, priority = "high", reason = "Venom/Toxic protection for status-heavy fights." },
+  { id = 0xE3, name = "Ebony Jewel", target_qty = 3, priority = "high", reason = "Dark defense for Dohati." },
+  { id = 0x79, name = "Healing Berry", target_qty = 10, priority = "high", reason = "Party-wide attrition reserve." },
+  { id = 0x7D, name = "Magic Fruit", target_qty = 4, priority = "medium", reason = "MP reserve for long castle fights." },
+]
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense." },
+  { party = "noa", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense." },
+  { party = "gala", slot = "goods1", id = 0xD7, name = "Pure Amulet", priority = "high", reason = "Status protection on a likely healer." },
+]
+must_get = [
+  { kind = "item", id = 0xE9, name = "Mettle Armband", reason = "Dohati's guaranteed drop in the curated enemy table." },
+]
+seru = ["Orb Lv2", "Aluru", "Swordie Lv2", "Nova Lv2", "Gola Gola", "Viguro Lv2", "Mushura", "Freed"]
+bosses = [
+  { name = "Dohati", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Expect heavy party damage and status pressure; keep an emergency Phoenix.", tactics = "Chaos Breath is a major status/party-pressure move. Spirit early and favor Pure/Wonder status protection plus Light damage." },
+]
+notes = "Dohati is a long enough fight that MP reserve matters."
+
+[[milestone]]
+id = "sol_tower"
+scene = "kor5"
+level_min = 24
+level_max = 25
+level_basis = "repo-boss-table: Gaza 25"
+buys = [
+  { id = 0x26, name = "Beast Buster", target_qty = 1, priority = "high", reason = "Large Vahn weapon upgrade." },
+  { id = 0x2C, name = "Holy Claw", target_qty = 1, priority = "high", reason = "Large Noa weapon upgrade." },
+  { id = 0x32, name = "Battle Axe", target_qty = 1, priority = "high", reason = "Large Gala weapon upgrade." },
+  { id = 0x37, name = "Hero Seal", target_qty = 1, priority = "high", reason = "Vahn head upgrade." },
+  { id = 0x48, name = "Expert Armor", target_qty = 1, priority = "high", reason = "Vahn armor upgrade." },
+  { id = 0x5D, name = "Hero Boots", target_qty = 1, priority = "high", reason = "Vahn footwear upgrade." },
+  { id = 0x3C, name = "Royal Crown", target_qty = 1, priority = "high", reason = "Noa head upgrade." },
+  { id = 0x63, name = "Steel Boots", target_qty = 1, priority = "high", reason = "Noa footwear upgrade." },
+  { id = 0x56, name = "War God Plate", target_qty = 1, priority = "high", reason = "Gala armor upgrade." },
+  { id = 0xE2, name = "Luminous Jewel", target_qty = 1, priority = "high", reason = "Light defense for first Gaza." },
+  { id = 0x79, name = "Healing Berry", target_qty = 10, priority = "high", reason = "Long Sol climb and Gaza fights." },
+  { id = 0x80, name = "Phoenix", target_qty = 6, priority = "high", reason = "Revive reserve." },
+]
+equipment = [
+  { party = "vahn", slot = "weapon", id = 0x26, name = "Beast Buster", priority = "high", reason = "Best Vahn shop weapon at Sol." },
+  { party = "noa", slot = "weapon", id = 0x2C, name = "Holy Claw", priority = "high", reason = "Best Noa shop weapon at Sol." },
+  { party = "gala", slot = "weapon", id = 0x32, name = "Battle Axe", priority = "high", reason = "Best Gala shop weapon at Sol." },
+]
+must_get = [
+  { kind = "item", id = 0xDC, name = "Wonder Amulet", reason = "High-value all-status protection in Sol." },
+  { kind = "item", id = 0xF0, name = "Golden Book", reason = "Gold-boost accessory found in Sol." },
+]
+seru = ["Spoon", "Kemaro"]
+bosses = [
+  { name = "Gaza", element = "light", weakness = "dark", guard_id = 0xE2, guard = "Luminous Jewel", healing = "His physical pressure is high; do not let a member sit in one-hit range.", tactics = "Use strongest Arts and Dark damage if available; prioritize survival over conserving AP." },
+]
+notes = "Spoon is the strongest broadly useful healing Seru available here and should be captured."
+
+[[milestone]]
+id = "sol_tower_b2"
+scene = "korb2"
+level_min = 25
+level_max = 26
+level_basis = "repo-boss-table: Gaza Sim-Seru 25-26"
+buys = [
+  { id = 0xE3, name = "Ebony Jewel", target_qty = 3, priority = "high", reason = "Dark defense for Gaza Sim-Seru." },
+]
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense." },
+]
+must_get = [
+  { kind = "item", id = 0xBA, name = "Astral Sword", reason = "Story reward after Gaza Sim-Seru; very high ATK but lengthens Vahn's Arts command." },
+]
+seru = ["Spoon", "Kemaro"]
+bosses = [
+  { name = "Gaza Sim-Seru", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Prepare for a long fight and keep all members out of one-hit range.", tactics = "Use strongest Arts/Light damage. Astral Sword is obtained after the fight, not preparation for it." },
+]
+notes = "Do not automatically equip Astral Sword if its longer Arts input lowers actual damage throughput."
+
+[[milestone]]
+id = "usha_research"
+scene = "usha"
+level_min = 26
+level_max = 27
+level_basis = "derived: Delilas trio 27"
+buys = [
+  { id = 0xEE, name = "Ivory Book", target_qty = 1, priority = "high", reason = "Raises Seru absorb chance; particularly useful for rare late Seru." },
+  { id = 0xF1, name = "Bronze Book", target_qty = 1, priority = "medium", reason = "Raises item-drop chance." },
+  { id = 0xFB, name = "Bad Luck Bell", target_qty = 1, priority = "medium", reason = "Raises encounter rate for deliberate grinding/capture." },
+  { id = 0x79, name = "Healing Berry", target_qty = 12, priority = "high", reason = "Nivora preparation." },
+  { id = 0x7D, name = "Magic Fruit", target_qty = 6, priority = "high", reason = "Nivora/late-game MP reserve." },
+  { id = 0x80, name = "Phoenix", target_qty = 8, priority = "high", reason = "Nivora revive reserve." },
+]
+equipment = [
+  { party = "gala", slot = "goods2", id = 0xEE, name = "Ivory Book", priority = "medium", reason = "Equip only while actively farming Seru; replace for bosses." },
+]
+must_get = []
+seru = ["Freed Lv2"]
+bosses = []
+notes = "Bad Luck Bell is a grind tool, not default travel equipment."
+
+[[milestone]]
+id = "nivora"
+scene = "nilboa"
+level_min = 27
+level_max = 27
+level_basis = "repo-boss-table: Delilas trio 27"
+buys = [
+  { id = 0xDF, name = "Burning Jewel", target_qty = 1, priority = "high", reason = "Fire defense for Gi Delilas." },
+  { id = 0xDD, name = "Earth Jewel", target_qty = 1, priority = "high", reason = "Earth defense for Che Delilas." },
+  { id = 0xE1, name = "Madlight Jewel", target_qty = 1, priority = "high", reason = "Thunder defense for Lu Delilas." },
+]
+equipment = []
+must_get = [
+  { kind = "item", id = 0xC4, name = "Spirit Jewel", reason = "Valuable MP-cost reduction accessory available in Nivora." },
+  { kind = "item", id = 0x91, name = "Fire Book III", reason = "Gi Delilas guaranteed drop." },
+  { kind = "item", id = 0x94, name = "Wind Book III", reason = "Lu Delilas guaranteed drop." },
+  { kind = "item", id = 0x97, name = "Thunder Book III", reason = "Che Delilas guaranteed drop." },
+]
+seru = ["Aluru Lv2"]
+bosses = [
+  { name = "Gi Delilas", element = "fire", weakness = "water", guard_id = 0xDF, guard = "Burning Jewel", healing = "Solo fight: heal before the predictable special can kill from current HP.", tactics = "Delilas pattern is two regular attacks then the special; Spirit before the third action." },
+  { name = "Che Delilas", element = "earth", weakness = "wind", guard_id = 0xDD, guard = "Earth Jewel", healing = "Solo fight: maintain enough HP to survive Megaton Press.", tactics = "Two normal attacks then special; Spirit on the special turn." },
+  { name = "Lu Delilas", element = "thunder", weakness = "no simple opposite-element weakness", guard_id = 0xE1, guard = "Madlight Jewel", healing = "Solo fight: heal before Plasma Strike if current HP is unsafe.", tactics = "Two normal attacks then special; Spirit on the special turn." },
+]
+notes = "Because each Delilas is a solo duel, assign the matching elemental guard to the character entering that duel."
+
+[[milestone]]
+id = "nivora_late"
+scene = "nilboa"
+level_min = 28
+level_max = 28
+level_basis = "repo-boss-table: Koru 28"
+buys = []
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xC6, name = "Power Ring", priority = "high", reason = "Timed Koru fight rewards raw damage." },
+]
+must_get = []
+seru = []
+bosses = [
+  { name = "Koru", element = "none", weakness = "none", guard_id = 0xC6, guard = "Power Ring / offensive AP accessories", healing = "Healing consumes the limited turn budget; heal only to prevent an immediate wipe.", tactics = "Timed kill. Maximize Arts/Super/Miracle damage and avoid low-value defensive turns." },
+]
+notes = "Koru is an explicit damage race, so this is one place the planner should override its normal conservative healing threshold."
+
+[[milestone]]
+id = "zora_castle"
+scene = "taiku"
+level_min = 29
+level_max = 30
+level_basis = "repo-boss-table: Zora 30"
+buys = [
+  { id = 0xDC, name = "Wonder Amulet", target_qty = 1, priority = "high", reason = "Blocks Zora's petrify/status threat." },
+  { id = 0xE3, name = "Ebony Jewel", target_qty = 2, priority = "high", reason = "Dark defense for Zora." },
+  { id = 0x7F, name = "Medicine", target_qty = 5, priority = "medium", reason = "Fallback petrify/status cure if Wonder Amulet coverage is incomplete." },
+]
+equipment = [
+  { party = "gala", slot = "goods1", id = 0xDC, name = "Wonder Amulet", priority = "high", reason = "Keep a healer protected from petrify." },
+  { party = "vahn", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense." },
+]
+must_get = []
+seru = ["Barra", "Puera"]
+bosses = [
+  { name = "Zora", element = "dark", weakness = "light", guard_id = 0xDC, guard = "Wonder Amulet", healing = "Cure Petrify immediately if an unprotected member is hit; heal after Darkness Typhoon.", tactics = "Ebony Jewel reduces dark damage; Wonder/Stone status protection prevents Glare from removing a member." },
+]
+notes = "Do not let the only reliable healer be the unprotected Petrify target."
+
+[[milestone]]
+id = "conkram_past"
+scene = "conc"
+level_min = 32
+level_max = 37
+level_basis = "guide variance: Rogue is ~33-34; one conservative guide recommends 37 for Conkram Past"
+buys = [
+  { id = 0x79, name = "Healing Berry", target_qty = 15, priority = "high", reason = "Late-game healing reserve." },
+  { id = 0x7B, name = "Healing Fruit", target_qty = 6, priority = "high", reason = "Emergency large heals." },
+  { id = 0x7D, name = "Magic Fruit", target_qty = 8, priority = "high", reason = "Late-game MP reserve." },
+  { id = 0x80, name = "Phoenix", target_qty = 10, priority = "high", reason = "Late-game revive reserve." },
+]
+equipment = []
+must_get = [
+  { kind = "item", id = 0xB5, name = "Nemesis Gem", reason = "Story item required to open Jette's Fortress." },
+  { kind = "item", id = 0x6C, name = "Minea's Ring", reason = "Unique +25% max-HP accessory from Queen Minea." },
+]
+seru = ["Slippery", "Kemaro Lv2"]
+bosses = []
+notes = "The lower level target is adequate for Rogue; the upper end is a conservative guide target and should not force grinding if fights are already stable."
+
+[[milestone]]
+id = "rogue_tower"
+scene = "rugi"
+level_min = 33
+level_max = 34
+level_basis = "repo-boss-table: Rogue 33; guide: Rogue Tower 34"
+buys = []
+equipment = [
+  { party = "gala", slot = "goods1", id = 0xE4, name = "Rainbow Jewel", priority = "high", reason = "All-element defense is ideal against Rogue's changing elemental attack." },
+]
+must_get = [
+  { kind = "item", id = 0xC3, name = "Magic Armband", reason = "High-value +25% MP accessory in Rogue Tower." },
+  { kind = "item", id = 0xD5, name = "Guardian Chain", reason = "High-value tower treasure." },
+  { kind = "item", id = 0x6D, name = "Miracle Water", reason = "Permanent-stat consumables in tower route." },
+]
+seru = ["Spoon Lv2", "Slippery", "Barra", "Gola Gola Lv2", "Iota", "Puera Lv2"]
+bosses = [
+  { name = "Rogue", element = "none/changing attacks", weakness = "none fixed", guard_id = 0xE4, guard = "Rainbow Jewel", healing = "Elemental attacks can still deal very high party damage through Spirit; heal before the next attack turn.", tactics = "Rogue alternates Element Change with an elemental attack. Attack on change turns; Spirit on attack turns." },
+]
+notes = "Element-cycle recognition should be deterministic and not require an LLM call."
+
+[[milestone]]
+id = "jette_fortress"
+scene = "chitei2"
+level_min = 34
+level_max = 37
+level_basis = "repo-boss-table: Jette 34; boss guide recommends ~35+; conservative walkthrough 37"
+buys = [
+  { id = 0x27, name = "Chaos Breaker", target_qty = 1, priority = "high", reason = "Late Vahn shop weapon if not already superseded." },
+  { id = 0x1E, name = "Heavy Strike", target_qty = 1, priority = "high", reason = "Late Noa shop weapon if affordable." },
+  { id = 0x30, name = "Power Club", target_qty = 1, priority = "high", reason = "Late Gala shop weapon if Great Axe has not been found yet." },
+  { id = 0x49, name = "Hero Armor", target_qty = 1, priority = "high", reason = "Late Vahn armor." },
+  { id = 0x3D, name = "Pronged Crown", target_qty = 1, priority = "high", reason = "Late Noa headgear." },
+  { id = 0x50, name = "Battle Robe", target_qty = 1, priority = "high", reason = "Late Noa armor." },
+  { id = 0x41, name = "War God Band", target_qty = 1, priority = "high", reason = "Late Gala headgear." },
+  { id = 0x56, name = "War God Plate", target_qty = 1, priority = "high", reason = "Late Gala armor." },
+  { id = 0x68, name = "War God Boots", target_qty = 1, priority = "high", reason = "Late Gala footwear." },
+  { id = 0xD4, name = "Defender Chain", target_qty = 3, priority = "high", reason = "Jette's regular physical hits are dangerous; boss guide recommends it." },
+]
+equipment = []
+must_get = [
+  { kind = "item", id = 0x2D, name = "Golden Claw", reason = "Top pre-Ra-Seru Noa weapon in fortress." },
+  { kind = "item", id = 0x33, name = "Great Axe", reason = "Top pre-Ra-Seru Gala weapon in fortress." },
+  { kind = "item", id = 0xC1, name = "Life Armband", reason = "+25% max HP; valuable for Jette/Cort." },
+  { kind = "item", id = 0xE7, name = "Lost Grail", reason = "One-time auto-revive accessory." },
+  { kind = "item", id = 0xE4, name = "Rainbow Jewel", reason = "All-element defense." },
+  { kind = "item", id = 0xDC, name = "Wonder Amulet", reason = "All-status defense." },
+  { kind = "item", id = 0xCE, name = "Unholy Icon", reason = "Fortress treasure." },
+  { kind = "item", id = 0xCF, name = "Warrior Icon", reason = "Fortress treasure." },
+]
+seru = ["Barra Lv2", "Spoon Lv2", "Gilium", "Slippery Lv2"]
+bosses = [
+  { name = "Jette", element = "dark", weakness = "light", guard_id = 0xD4, guard = "Defender Chain", healing = "Heal promptly after Shadow Break; target ~2400+ HP is cited by the boss guide.", tactics = "Ignore Jette's low-damage clone; the real Jette is the one casting Shadow Break. Use high-output Arts after the party survives the AoE." },
+]
+notes = "Use the fortress recovery spring to grind only if the party is below survivability thresholds."
+
+[[milestone]]
+id = "jette_fortress_late"
+scene = "chitei2"
+level_min = 35
+level_max = 37
+level_basis = "repo-boss-table: Cort 35; conservative walkthrough 37"
+buys = []
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xC1, name = "Life Armband", priority = "high", reason = "HP buffer for Cort." },
+  { party = "gala", slot = "goods1", id = 0xE7, name = "Lost Grail", priority = "high", reason = "Protect the likely healer from a fatal burst." },
+]
+must_get = []
+seru = []
+bosses = [
+  { name = "Cort", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Keep party HP high before the barrier breaks; Mystic Circle is a major party-wide threat.", tactics = "Damage the barrier/body steadily, Spirit before expected burst turns, then heal immediately after Mystic Circle." },
+]
+notes = "Do not spend the Lost Grail on routine encounters immediately before this fight."
+
+[[milestone]]
+id = "noaru_valley"
+scene = "noaru"
+level_min = 36
+level_max = 43
+level_basis = "repo-boss-table: Songi III 36; conservative walkthrough recommends low-40s"
+buys = []
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xE3, name = "Ebony Jewel", priority = "high", reason = "Dark defense for Songi III." },
+  { party = "gala", slot = "goods1", id = 0xE7, name = "Lost Grail", priority = "high", reason = "Protect healer from Songi burst." },
+]
+must_get = [
+  { kind = "item", id = 0x4A, name = "Triumph Armor", reason = "Major Vahn armor upgrade in Seru-Kai/Noaru route." },
+]
+seru = ["Gilium Lv2", "Barra Lv2", "Slippery Lv2"]
+bosses = [
+  { name = "Songi III", element = "dark", weakness = "light", guard_id = 0xE3, guard = "Ebony Jewel", healing = "Songi's physical damage is extreme; heal aggressively and preserve a revive.", tactics = "Use strongest Arts/Miracle Arts and Light damage. If the live run is losing members in one turn, grind rather than retrying unchanged." },
+]
+notes = "This wide range is intentional: guides disagree sharply. Live observed damage should decide whether grinding is needed."
+
+[[milestone]]
+id = "bio_castle"
+scene = "jouind"
+level_min = 37
+level_max = 45
+level_basis = "guide variance: final boss commonly cleared high-30s; conservative walkthrough recommends 45"
+buys = []
+equipment = [
+  { party = "vahn", slot = "body", id = 0x4B, name = "Ra-Seru Armor", priority = "critical", reason = "Final Vahn armor." },
+  { party = "noa", slot = "body", id = 0x51, name = "Ra-Seru Robe", priority = "critical", reason = "Final Noa armor." },
+  { party = "gala", slot = "body", id = 0x57, name = "Ra-Seru Plate", priority = "critical", reason = "Final Gala armor." },
+  { party = "vahn", slot = "head", id = 0x38, name = "Ra-Seru Seal", priority = "critical", reason = "Final Vahn headgear." },
+  { party = "noa", slot = "head", id = 0x3E, name = "Ra-Seru Plume", priority = "critical", reason = "Final Noa headgear." },
+  { party = "gala", slot = "head", id = 0x42, name = "Ra-Seru Helmet", priority = "critical", reason = "Final Gala headgear." },
+  { party = "vahn", slot = "boots", id = 0x5F, name = "Ra-Seru Boots", priority = "critical", reason = "Final Vahn footwear." },
+  { party = "noa", slot = "boots", id = 0x64, name = "Ra-Seru Shoes", priority = "critical", reason = "Final Noa footwear." },
+  { party = "gala", slot = "boots", id = 0x69, name = "Ra-Seru Thongs", priority = "critical", reason = "Final Gala footwear." },
+  { party = "vahn", slot = "weapon", id = 0x1B, name = "Ra-Seru Blade", priority = "critical", reason = "Final Vahn weapon." },
+  { party = "noa", slot = "weapon", id = 0x1F, name = "Ra-Seru Fangs", priority = "critical", reason = "Final Noa weapon." },
+  { party = "gala", slot = "weapon", id = 0x21, name = "Ra-Seru Club", priority = "critical", reason = "Final Gala weapon." },
+]
+must_get = [
+  { kind = "item", id = 0x4B, name = "Ra-Seru Armor", reason = "Final Vahn armor." },
+  { kind = "item", id = 0x51, name = "Ra-Seru Robe", reason = "Final Noa armor." },
+  { kind = "item", id = 0x57, name = "Ra-Seru Plate", reason = "Final Gala armor." },
+  { kind = "item", id = 0xEF, name = "Crimson Book", reason = "+25% earned XP; useful only if further grinding is needed." },
+  { kind = "item", id = 0xE7, name = "Lost Grail", reason = "Final-dungeon revive accessory." },
+  { kind = "item", id = 0xC1, name = "Life Armband", reason = "Final-dungeon HP accessory/event reward." },
+  { kind = "item", id = 0xEA, name = "Mettle Goblet", reason = "Hidden final-dungeon accessory that holds AP at 100." },
+  { kind = "item", id = 0xC3, name = "Magic Armband", reason = "Final-dungeon MP accessory." },
+  { kind = "item", id = 0x1B, name = "Ra-Seru Blade", reason = "Final Vahn weapon." },
+  { kind = "item", id = 0x1F, name = "Ra-Seru Fangs", reason = "Final Noa weapon." },
+  { kind = "item", id = 0x21, name = "Ra-Seru Club", reason = "Final Gala weapon." },
+]
+seru = ["late Lv3 Seru as still missing"]
+bosses = []
+notes = "Equip each Ra-Seru piece as it is found. The final save point area is the best late grind fallback if the party is still fragile."
+
+[[milestone]]
+id = "cort_chamber"
+scene = "jouine"
+level_min = 37
+level_max = 45
+level_basis = "GameFAQs: level 37 reported sufficient; conservative full-game guide recommends 45"
+buys = []
+equipment = [
+  { party = "vahn", slot = "goods1", id = 0xEA, name = "Mettle Goblet", priority = "high", reason = "Permanent 100 AP enables sustained high-output Arts." },
+  { party = "gala", slot = "goods1", id = 0xE7, name = "Lost Grail", priority = "high", reason = "One automatic revive on the healer/tank." },
+  { party = "noa", slot = "goods1", id = 0xC1, name = "Life Armband", priority = "high", reason = "Extra HP for the final endurance fight." },
+]
+must_get = []
+seru = []
+bosses = [
+  { name = "Cort (Juggernaut)", element = "none", weakness = "none fixed", guard_id = 0xE7, guard = "Lost Grail / Life Grail / high-HP accessories", healing = "Final Crisis and other late attacks demand immediate party recovery; preserve revives and large heals.", tactics = "Long endurance fight. Spirit on telegraphed charge turns, use highest sustainable Arts/Miracle output, and do not waste turns on low-value attacks." },
+]
+notes = "The curated enemy table records the final form as non-elemental, so generic survival/AP accessories beat elemental jewels."
+
+[[milestone]]
+id = "ending"
+scene = "edteien"
+level_min = 0
+level_max = 0
+level_basis = "ending sequence"
+buys = []
+equipment = []
+must_get = []
+seru = []
+bosses = []
+notes = "No progression actions. Preserve lockstep and FMV/cutscene handoff markers through the ending chain."
+
+[[milestone]]
+id = "credits"
+scene = "edlast"
+level_min = 0
+level_max = 0
+level_basis = "credits"
+buys = []
+equipment = []
+must_get = []
+seru = []
+bosses = []
+notes = "Terminal milestone. Do not advance or restart after the credits completion condition fires."

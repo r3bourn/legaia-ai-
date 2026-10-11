@@ -1543,7 +1543,7 @@ impl LegaiaRuntime {
     /// Rebuild the page-facing render state for the scene the host now holds:
     /// the assembled map, the lead's posed mesh, the NPC catalog. Runs on scene
     /// entry and on every door the engine walks through.
-    fn rebuild_render_state(&mut self) -> Result<(), JsValue> {
+    pub(crate) fn rebuild_render_state(&mut self) -> Result<(), JsValue> {
         // A scene swap drops the previous scene's script-spawned actors
         // with it (the MAN loader's retire sweep); the page re-uploads
         // whatever the new scene spawns.
@@ -1686,7 +1686,7 @@ impl LegaiaRuntime {
 
     /// One sim tick of the actor layer's clip playback
     /// ([`crate::field_actors::FieldActors::drive`]).
-    fn drive_npc_clips(&mut self) {
+    pub(crate) fn drive_npc_clips(&mut self) {
         let Some(host) = self.scene_host.host_mut() else {
             return;
         };
@@ -1823,7 +1823,7 @@ impl LegaiaRuntime {
     /// at 10 - groups 10/11 are equipment-swap templates and are never drawn), so
     /// bone `i` poses object `i`.
     /// REF: FUN_8001E890
-    fn build_player_rig(&mut self) {
+    pub(crate) fn build_player_rig(&mut self) {
         let Some(host) = self.scene_host.host_mut() else {
             return;
         };
@@ -1892,7 +1892,9 @@ impl LegaiaRuntime {
                     roster_lead,
                 )
             });
-        host.world.set_field_player_anim(anim);
+        if !crate::spectate::spectating() {
+            host.world.set_field_player_anim(anim);
+        }
     }
 
     /// Drain this tick's field-VM BGM events into the page's director.

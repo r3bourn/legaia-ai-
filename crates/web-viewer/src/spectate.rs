@@ -47,6 +47,14 @@ thread_local! {
     static SPECTATE: RefCell<Spectate> = RefCell::new(Spectate::default());
 }
 
+/// Whether the page is spectating. The render layers that normally write
+/// animation state into the world (NPC clip cursors, clip cues, the player's
+/// field anim) stay read-only while it is: the AI's session never ran them,
+/// so a write here would fork this session from the one the stream came from.
+pub(crate) fn spectating() -> bool {
+    SPECTATE.with(|s| s.borrow().active)
+}
+
 /// Parse stream text into events. Unknown or malformed lines are errors: a
 /// silently skipped event desynchronises everything after it.
 fn parse_stream(text: &str) -> Result<Vec<Ev>, String> {
@@ -100,13 +108,18 @@ impl LegaiaRuntime {
         let scene = session
             .start_new_game(&spectator_opts())
             .ok_or_else(|| JsValue::from_str("spectate_begin: no opening scene would enter"))?;
+        let scene = scene.to_string();
         SPECTATE.with(|s| {
             *s.borrow_mut() = Spectate {
                 active: true,
                 ..Spectate::default()
             }
         });
-        Ok(scene.to_string())
+        // The page's own entry (`enter_field_core`) ends by building the
+        // render state; the session's entry does not, so do it here or the
+        // first scene has nothing to draw.
+        self.rebuild_render_state()?;
+        Ok(scene)
     }
 
     /// Append stream text to the pending events. Returns the queue length.
@@ -128,28 +141,47 @@ impl LegaiaRuntime {
         let mut entered = String::new();
         let mut ran = 0u32;
         let active = SPECTATE.with(|s| s.borrow().active);
-        if active && let Some(session) = self.scene_host.session_mut() {
-            while ran < max_ticks && entered.is_empty() {
-                let Some(ev) = SPECTATE.with(|s| s.borrow_mut().queue.pop_front()) else {
-                    break;
-                };
-                match ev {
-                    Ev::Pad(m) => session.host.world.set_pad(m),
-                    Ev::Tick => {
-                        ran += 1;
-                        if let Ok(SceneTickEvent::SceneEntered { name }) = session.tick() {
-                            entered = name;
-                        }
-                    }
-                    Ev::FinishCutscene => session.host.world.finish_cutscene(),
-                    Ev::FmvHandoff => {
-                        if let Some(FmvHandoffOutcome::Entered { scene, .. }) =
-                            session.apply_pending_fmv_handoff()
-                        {
-                            entered = scene.to_string();
-                        }
+        while active && ran < max_ticks && entered.is_empty() {
+            let Some(session) = self.scene_host.session_mut() else {
+                break;
+            };
+            let Some(ev) = SPECTATE.with(|s| s.borrow_mut().queue.pop_front()) else {
+                break;
+            };
+            let ticked = matches!(ev, Ev::Tick);
+            match ev {
+                Ev::Pad(m) => session.host.world.set_pad(m),
+                Ev::Tick => {
+                    ran += 1;
+                    if let Ok(SceneTickEvent::SceneEntered { name }) = session.tick() {
+                        entered = name;
                     }
                 }
+                Ev::FinishCutscene => session.host.world.finish_cutscene(),
+                Ev::FmvHandoff => {
+                    if let Some(FmvHandoffOutcome::Entered { scene, .. }) =
+                        session.apply_pending_fmv_handoff()
+                    {
+                        entered = scene.to_string();
+                    }
+                }
+            }
+            // The page-side, render-only half of `tick_frame`'s tail: the
+            // scene's render state on entry, the player rig when a script
+            // re-staged the model, and the NPC clip step. None of it feeds
+            // back into the simulation.
+            if !entered.is_empty() {
+                let _ = self.rebuild_render_state();
+            }
+            if ticked {
+                if self
+                    .scene_host
+                    .host_mut()
+                    .is_some_and(|h| h.world.take_player_rig_change())
+                {
+                    self.build_player_rig();
+                }
+                self.drive_npc_clips();
             }
         }
         let (pending, total) = SPECTATE.with(|s| {

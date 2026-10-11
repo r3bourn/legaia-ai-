@@ -124,8 +124,10 @@ impl FieldActors {
             if let Some(player) =
                 legaia_engine_core::field_anim::FieldClipPlayer::from_record(b, rec)
             {
-                host.world
-                    .bind_npc_clip_cursor(slot, e.placement.anim_id, &player);
+                if !crate::spectate::spectating() {
+                    host.world
+                        .bind_npc_clip_cursor(slot, e.placement.anim_id, &player);
+                }
                 self.clips.insert(
                     slot,
                     NpcClip {
@@ -145,6 +147,17 @@ impl FieldActors {
     /// render side reads clip state without moving the playhead, so clip
     /// cadence is the 60 Hz sim clock, not the display refresh.
     pub fn drive(&mut self, host: &mut SceneHost, banks: ActorBanks<'_>) {
+        // Spectating: the world's clip cues and cursors belong to the AI's
+        // session, which never drained or bound them. Free-run the players
+        // for the picture without consuming anything.
+        if crate::spectate::spectating() {
+            if host.world.field_npc_clips_advance() {
+                for clip in self.clips.values_mut() {
+                    clip.player.advance(1);
+                }
+            }
+            return;
+        }
         // Every catalogued placement is a clip target, not only the ones that
         // spawned with a clip: a placement whose live anim id was still `0`
         // at the rebuild takes its first clip from a cue.

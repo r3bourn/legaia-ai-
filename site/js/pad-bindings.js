@@ -206,9 +206,11 @@
    * fork one tiny integration seam while leaving minigames and viewer pages
    * unchanged. */
   if (typeof document !== 'undefined' && /(?:^|\/)play\.html$/.test(location.pathname)) {
-    const script = document.createElement('script');
-    script.src = 'js/ai-player.js';
-    script.defer = true;
-    document.head.appendChild(script);
+    for (const src of ['js/ai-player.js', 'js/homelab-disc.js']) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
   }
 }());

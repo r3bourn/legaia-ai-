@@ -21,15 +21,17 @@ printf '\n[1/5] rustfmt check\n'
 cargo fmt --all -- --check
 
 printf '\n[2/5] native type-check\n'
-cargo check \
-  "$(printf -- '-p %s ' "${AI_PACKAGES[@]}")" \
-  -p legaia-web-viewer
+check_args=()
+for package in "${AI_PACKAGES[@]}"; do
+  check_args+=(-p "$package")
+done
+cargo check "${check_args[@]}" -p legaia-web-viewer
 
 printf '\n[3/5] AI crate tests\n'
 for package in "${AI_PACKAGES[@]}"; do
   printf '\n-- %s --\n' "$package"
   cargo test -p "$package" --profile release-test
- done
+done
 
 printf '\n[4/5] browser crate native tests/type-check\n'
 cargo test -p legaia-web-viewer --profile release-test

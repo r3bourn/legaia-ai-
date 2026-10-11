@@ -67,6 +67,7 @@ mod scene_lighting_real;
 mod sfx_cues_real;
 mod shop_overlay_parity;
 mod soft_reset_records_page;
+mod spectate_replay;
 mod str_video;
 mod summon_view_real;
 mod texture_pack_roundtrip;

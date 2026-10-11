@@ -756,8 +756,8 @@ fn fight_committed(session: &mut BootSession, r: Run) -> Run {
             }
             return run_while_moving(session, DEEP_EXIT_TICKS);
         }
-        session.host.world.set_pad(0);
-        match session.tick() {
+        rec_set_pad(session, 0);
+        match rec_tick(session) {
             Ok(SceneTickEvent::SceneEntered { name }) => return Run::Entered(name),
             Ok(_) => {}
             Err(e) => return Run::Error(format!("{e:#}")),
@@ -1315,6 +1315,112 @@ fn flag_window_destinations(
 ///
 /// `stop_on_release` ends the run as soon as nothing holds the pad (after
 /// `EXIT_IDLE_TICKS` idle ticks); otherwise only a scene change ends it.
+/// One input-side step the pad tier applied to the session, in order.
+///
+/// `LEGAIA_FGL_REPLAY_CHECK=1` records the pad tier's whole drive of a
+/// segment and plays it back into a freshly seeded session: if the replay
+/// lands on the same scene, position, frame, flags and rand state, the
+/// segment is a pure function of this stream, and a host that only renders
+/// (the browser spectator) can reproduce the run from the stream alone.
+/// `InputState::set_pad` rotates the edge history per call, not per tick,
+/// so every pad write is an event, not just the word each tick sees.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum RecEv {
+    Pad(u16),
+    Tick,
+    FinishCutscene,
+    FmvHandoff,
+}
+
+thread_local! {
+    static REC: std::cell::RefCell<Option<Vec<RecEv>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn rec_event(ev: RecEv) {
+    REC.with(|r| {
+        if let Some(log) = r.borrow_mut().as_mut() {
+            log.push(ev);
+        }
+    });
+}
+
+fn rec_set_pad(session: &mut BootSession, mask: u16) {
+    rec_event(RecEv::Pad(mask));
+    session.host.world.set_pad(mask);
+}
+
+fn rec_tick(session: &mut BootSession) -> anyhow::Result<SceneTickEvent> {
+    rec_event(RecEv::Tick);
+    session.tick()
+}
+
+/// Apply a recorded stream to `session`.
+fn replay_stream(session: &mut BootSession, log: &[RecEv]) {
+    for ev in log {
+        match *ev {
+            RecEv::Pad(m) => session.host.world.set_pad(m),
+            RecEv::Tick => {
+                let _ = session.tick();
+            }
+            RecEv::FinishCutscene => session.host.world.finish_cutscene(),
+            RecEv::FmvHandoff => {
+                let _ = session.apply_pending_fmv_handoff();
+            }
+        }
+    }
+}
+
+/// What a replay must reproduce for the run to count as the same run.
+fn replay_fingerprint(session: &BootSession) -> String {
+    let flags: Vec<u16> = flags_of_world(session).into_iter().collect();
+    format!(
+        "scene={} xz={:?} frames={} rng={:#010x} mode={:?} flags={}:{:x}",
+        scene_name(session),
+        player_xz(session),
+        session.frames,
+        session.host.world.rng_state,
+        session.host.world.mode,
+        flags.len(),
+        flags.iter().fold(0u64, |h, f| h
+            .wrapping_mul(1_000_003)
+            .wrapping_add(u64::from(*f))),
+    )
+}
+
+/// Run-length text form of a stream for `LEGAIA_FGL_RECORD=<dir>`:
+/// `p <hex>` a pad write, `t <n>` n ticks, `c` cutscene finished, `h` FMV
+/// hand-off applied.
+fn write_stream(path: &Path, log: &[RecEv]) -> std::io::Result<()> {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let mut ticks = 0u32;
+    let flush = |out: &mut String, ticks: &mut u32| {
+        if *ticks > 0 {
+            let _ = writeln!(out, "t {ticks}");
+            *ticks = 0;
+        }
+    };
+    for ev in log {
+        match ev {
+            RecEv::Tick => ticks += 1,
+            RecEv::Pad(m) => {
+                flush(&mut out, &mut ticks);
+                let _ = writeln!(out, "p {m:04x}");
+            }
+            RecEv::FinishCutscene => {
+                flush(&mut out, &mut ticks);
+                out.push_str("c\n");
+            }
+            RecEv::FmvHandoff => {
+                flush(&mut out, &mut ticks);
+                out.push_str("h\n");
+            }
+        }
+    }
+    flush(&mut out, &mut ticks);
+    std::fs::write(path, out)
+}
+
 fn run(session: &mut BootSession, budget: usize, stop_on_release: bool) -> Run {
     let mut idle = 0usize;
     for f in 0..budget {
@@ -1344,11 +1450,11 @@ fn run(session: &mut BootSession, budget: usize, stop_on_release: bool) -> Run {
         };
         // The naming prompt (the opening's op-0x49) takes this pad's edge
         // inside `BootSession::tick`, as it does in both play hosts.
-        session.host.world.set_pad(pad);
+        rec_set_pad(session, pad);
         let before = player_xz(session);
         let site = std::env::var_os("LEGAIA_FGL_POS_TRACE").map(|_| park_site(session));
         let roll_before = encounter_roll_state(session);
-        let r = session.tick();
+        let r = rec_tick(session);
         note_random_roll(session, roll_before);
         if let Some(site) = site {
             let after = player_xz(session);
@@ -1363,7 +1469,9 @@ fn run(session: &mut BootSession, budget: usize, stop_on_release: bool) -> Run {
             Err(e) => return Run::Error(format!("{e:#}")),
         }
         if session.host.world.active_fmv().is_some() {
+            rec_event(RecEv::FinishCutscene);
             session.host.world.finish_cutscene();
+            rec_event(RecEv::FmvHandoff);
             if let Some(FmvHandoffOutcome::Entered { scene, .. }) =
                 session.apply_pending_fmv_handoff()
             {
@@ -1373,14 +1481,14 @@ fn run(session: &mut BootSession, budget: usize, stop_on_release: bool) -> Run {
         if f >= 2 && released(session) {
             idle += 1;
             if stop_on_release && idle >= EXIT_IDLE_TICKS {
-                session.host.world.set_pad(0);
+                rec_set_pad(session, 0);
                 return Run::Released;
             }
         } else {
             idle = 0;
         }
     }
-    session.host.world.set_pad(0);
+    rec_set_pad(session, 0);
     if released(session) {
         Run::Released
     } else {
@@ -1456,10 +1564,10 @@ fn close_scripted_menu(session: &mut BootSession) -> bool {
         let Some(pad) = scripted_menu_pad(session, g) else {
             break;
         };
-        session.host.world.set_pad(pad);
-        let _ = session.tick();
+        rec_set_pad(session, pad);
+        let _ = rec_tick(session);
     }
-    session.host.world.set_pad(0);
+    rec_set_pad(session, 0);
     true
 }
 
@@ -3051,8 +3159,8 @@ fn fight_battle(session: &mut BootSession) -> Option<Run> {
         let want = fight_pad(session);
         let pad = if prev == 0 { want } else { 0 };
         prev = pad;
-        session.host.world.set_pad(pad);
-        if let Err(e) = session.tick() {
+        rec_set_pad(session, pad);
+        if let Err(e) = rec_tick(session) {
             return Some(Run::Error(format!("{e:#}")));
         }
         if foe_charged(&session.host.world) {
@@ -3367,7 +3475,7 @@ fn doors_to(session: &BootSession, graph: &DiscGraph, dest: &str) -> Result<Vec<
 /// Seat one tile off `tile` and onto it, so the walk-on dispatch sees a
 /// genuine tile change.
 fn step_onto(session: &mut BootSession, tile: (u8, u8)) {
-    session.host.world.set_pad(0);
+    rec_set_pad(session, 0);
     // The approach tile must itself be inert: a kind-1 band there spawns its
     // own record, and a kind-0 teleport there arms a warp whose landing, a
     // few dozen frames later, carries the player off the tile under test
@@ -3385,7 +3493,7 @@ fn step_onto(session: &mut BootSession, tile: (u8, u8)) {
             (tile.0 + 1, tile.1)
         });
     session.host.world.seat_player_at_tile(off.0, off.1);
-    let _ = session.tick();
+    let _ = rec_tick(session);
     session.host.world.seat_player_at_tile(tile.0, tile.1);
 }
 
@@ -5640,13 +5748,13 @@ fn pad_hop(session: &mut BootSession, graph: &DiscGraph, dest: &str) -> Result<S
             let from = player_xz(session);
             let mut trail = Vec::new();
             for f in 0..40 {
-                session.host.world.set_pad(mask);
-                let _ = session.tick();
+                rec_set_pad(session, mask);
+                let _ = rec_tick(session);
                 if f % 8 == 7 {
                     trail.push(player_xz(session));
                 }
             }
-            session.host.world.set_pad(0);
+            rec_set_pad(session, 0);
             let _ = run_while_moving(session, 600);
             eprintln!(
                 "      [probe] {} {spec} from {from:?}: {trail:?} now {:?} exempt {:?} walls {:?} npcs near {:?}",
@@ -6701,9 +6809,9 @@ fn pad_walk(
             }
         }
         pressed_at = Some((wx, wz));
-        session.host.world.set_pad(pad);
+        rec_set_pad(session, pad);
         let jump_from = player_xz(session);
-        match session.tick() {
+        match rec_tick(session) {
             Ok(SceneTickEvent::SceneEntered { name }) => return Ok(Walk::Entered(name)),
             Ok(_) => {}
             Err(e) => return Err(format!("tick: {e:#}")),
@@ -6748,8 +6856,8 @@ fn pad_walk(
             // re-crosses it forever.
             let r = match poll_chain_pads(session) {
                 Some(pads) if pad != 0 && !pads.contains(&pad) => {
-                    session.host.world.set_pad(pad);
-                    match session.tick() {
+                    rec_set_pad(session, pad);
+                    match rec_tick(session) {
                         Ok(SceneTickEvent::SceneEntered { name }) => Run::Entered(name),
                         Ok(_) => run_while_moving(session, DEEP_EXIT_TICKS),
                         Err(e) => Run::Error(format!("{e:#}")),
@@ -6827,7 +6935,7 @@ fn pad_walk(
                 && let Some(rec) = fired_record
             {
                 TURNBACK.with(|t| t.borrow_mut().insert((scene_name(session), rec)));
-                session.host.world.set_pad(0);
+                rec_set_pad(session, 0);
                 return Err(format!(
                     "no walkable path: band P2[{rec}] turned the walk to {goal:?} back at {:?}",
                     here(session)
@@ -6862,7 +6970,7 @@ fn pad_walk(
         }
         let d = dist(here(session));
         if d <= within {
-            session.host.world.set_pad(0);
+            rec_set_pad(session, 0);
             return Ok(Walk::Arrived);
         }
         let (px, pz) = player_xz(session);
@@ -6872,7 +6980,7 @@ fn pad_walk(
         } else {
             since += 1;
             if since >= PAD_STALL_FRAMES {
-                session.host.world.set_pad(0);
+                rec_set_pad(session, 0);
                 let (px, pz) = player_xz(session);
                 let next: Vec<(i16, i16)> = path.iter().take(4).map(|&c| cell_center(c)).collect();
                 let w = &session.host.world;
@@ -6935,7 +7043,7 @@ fn pad_walk(
             }
         }
     }
-    session.host.world.set_pad(0);
+    rec_set_pad(session, 0);
     Err(format!("pad walk to {goal:?} ran out of frames"))
 }
 
@@ -6957,13 +7065,13 @@ fn pad_lean(
         let (px, pz) = player_xz(session);
         let axis = |d: i16| if d.abs() > 16 { d.signum() } else { 0 };
         let pad = pad_for_step(session, axis(ax - px), axis(az - pz));
-        session.host.world.set_pad(pad);
-        if let Ok(SceneTickEvent::SceneEntered { name }) = session.tick() {
-            session.host.world.set_pad(0);
+        rec_set_pad(session, pad);
+        if let Ok(SceneTickEvent::SceneEntered { name }) = rec_tick(session) {
+            rec_set_pad(session, 0);
             return Some(name);
         }
     }
-    session.host.world.set_pad(0);
+    rec_set_pad(session, 0);
     None
 }
 
@@ -7076,15 +7184,15 @@ fn open_pause_menu(session: &mut BootSession) {
         if session.field_menu.is_none() || session.pause_wipe().menu_spawned() {
             break;
         }
-        let _ = session.tick();
+        let _ = rec_tick(session);
     }
 }
 
 fn tap_pad(session: &mut BootSession, mask: u16) {
-    session.host.world.set_pad(mask);
-    let _ = session.tick();
-    session.host.world.set_pad(0);
-    let _ = session.tick();
+    rec_set_pad(session, mask);
+    let _ = rec_tick(session);
+    rec_set_pad(session, 0);
+    let _ = rec_tick(session);
 }
 
 /// Hand control to the next party member inside an armed three-actor talk:
@@ -7109,7 +7217,7 @@ fn swap_leader(session: &mut BootSession) -> bool {
         if armed(session) && session.host.world.party.party_leader_slot != before {
             break;
         }
-        if session.tick().is_err() {
+        if rec_tick(session).is_err() {
             break;
         }
     }
@@ -7242,7 +7350,7 @@ fn pad_field_heal(session: &mut BootSession, threshold: u32) -> usize {
             Some(_) => PadButton::Circle.mask(),
         };
         if pad == 0 {
-            let _ = session.tick();
+            let _ = rec_tick(session);
             continue;
         }
         tap_pad(session, pad);
@@ -7420,7 +7528,7 @@ fn pad_equip_guard(session: &mut BootSession, element: u8) -> usize {
             (Some(_), _) => PadButton::Circle.mask(),
         };
         if pad == 0 {
-            let _ = session.tick();
+            let _ = rec_tick(session);
             continue;
         }
         tap_pad(session, pad);
@@ -7534,7 +7642,7 @@ fn pad_field_repel(session: &mut BootSession, threshold: u32) -> bool {
             Some(_) => PadButton::Circle.mask(),
         };
         if pad == 0 {
-            let _ = session.tick();
+            let _ = rec_tick(session);
             continue;
         }
         tap_pad(session, pad);
@@ -8196,7 +8304,7 @@ fn play_beats(session: &mut BootSession, log: &mut Vec<String>) -> Result<Option
                 .get(&slot)
                 .copied();
             let (tx, tz) = tile_of(contact.0, contact.1);
-            session.host.world.set_pad(0);
+            rec_set_pad(session, 0);
             if pad_hand() {
                 // Walk up to the door and lean on it: the locomotion's own
                 // contact probe posts the touch.
@@ -8266,13 +8374,13 @@ fn play_beats(session: &mut BootSession, log: &mut Vec<String>) -> Result<Option
                 if session.host.world.props.active_walk_touch == Some(slot) {
                     break;
                 }
-                session.host.world.set_pad(dir.mask());
-                if let Ok(SceneTickEvent::SceneEntered { name }) = session.tick() {
+                rec_set_pad(session, dir.mask());
+                if let Ok(SceneTickEvent::SceneEntered { name }) = rec_tick(session) {
                     entered = Some(name);
                     break;
                 }
             }
-            session.host.world.set_pad(0);
+            rec_set_pad(session, 0);
             let r = match entered {
                 Some(s) => Run::Entered(s),
                 None => run_while_moving(session, DEEP_EXIT_TICKS),
@@ -8462,15 +8570,15 @@ fn touch_prop(session: &mut BootSession, anchor: (u8, u8), at: (i32, i32)) -> Ru
         if !(0..128).contains(&sx) || !(0..128).contains(&sz) {
             continue;
         }
-        session.host.world.set_pad(0);
+        rec_set_pad(session, 0);
         session.host.world.seat_player_at_tile(sx as u8, sz as u8);
         let mut started = false;
         for _ in 0..40 {
             let pad = pad_for_step(session, -dx, -dz);
-            session.host.world.set_pad(pad);
-            match session.tick() {
+            rec_set_pad(session, pad);
+            match rec_tick(session) {
                 Ok(SceneTickEvent::SceneEntered { name }) => {
-                    session.host.world.set_pad(0);
+                    rec_set_pad(session, 0);
                     return Run::Entered(name);
                 }
                 Ok(_) => {}
@@ -8481,7 +8589,7 @@ fn touch_prop(session: &mut BootSession, anchor: (u8, u8), at: (i32, i32)) -> Ru
                 break;
             }
         }
-        session.host.world.set_pad(0);
+        rec_set_pad(session, 0);
         if started {
             return run_while_moving(session, DEEP_EXIT_TICKS);
         }
@@ -9200,7 +9308,7 @@ fn interact_at(
         {
             continue;
         }
-        session.host.world.set_pad(0);
+        rec_set_pad(session, 0);
         session.host.world.seat_player_at_tile(sx as u8, sz as u8);
         // The one compass sector whose probe point lands in the NPC's box.
         let facing = (0..8u8).find(|&d| {
@@ -9211,8 +9319,8 @@ fn interact_at(
             continue;
         };
         let before = flags_of_world(session);
-        session.host.world.set_pad(PadButton::Cross.mask());
-        match session.tick() {
+        rec_set_pad(session, PadButton::Cross.mask());
+        match rec_tick(session) {
             Ok(SceneTickEvent::SceneEntered { name }) => return Run::Entered(name),
             Ok(_) => {}
             Err(e) => return Run::Error(format!("{e:#}")),
@@ -9236,8 +9344,8 @@ fn interact_at(
                 break;
             }
             let pad = script_pad(session, f);
-            session.host.world.set_pad(pad);
-            match session.tick() {
+            rec_set_pad(session, pad);
+            match rec_tick(session) {
                 Ok(SceneTickEvent::SceneEntered { name }) => return Run::Entered(name),
                 Ok(_) => {}
                 Err(e) => return Run::Error(format!("{e:#}")),
@@ -9309,8 +9417,8 @@ fn page_talk(session: &mut BootSession) -> Option<Run> {
             return None;
         }
         let pad = script_pad(session, f);
-        session.host.world.set_pad(pad);
-        match session.tick() {
+        rec_set_pad(session, pad);
+        match rec_tick(session) {
             Ok(SceneTickEvent::SceneEntered { name }) => return Some(Run::Entered(name)),
             Ok(_) => {}
             Err(e) => return Some(Run::Error(format!("{e:#}"))),
@@ -9413,12 +9521,12 @@ fn pad_talk_to(session: &mut BootSession, slot: u8) -> Run {
         }
         let before = flags_of_world(session);
         // Release, then press: the interact is edge-triggered.
-        session.host.world.set_pad(0);
-        if let Ok(SceneTickEvent::SceneEntered { name }) = session.tick() {
+        rec_set_pad(session, 0);
+        if let Ok(SceneTickEvent::SceneEntered { name }) = rec_tick(session) {
             return Run::Entered(name);
         }
-        session.host.world.set_pad(PadButton::Cross.mask());
-        match session.tick() {
+        rec_set_pad(session, PadButton::Cross.mask());
+        match rec_tick(session) {
             Ok(SceneTickEvent::SceneEntered { name }) => return Run::Entered(name),
             Ok(_) => {}
             Err(e) => return Run::Error(format!("{e:#}")),
@@ -9969,8 +10077,44 @@ fn run_segment(
                 }
                 let start = session.frames;
                 let mut trail = vec![scene_name(&session)];
+                let checking = std::env::var_os("LEGAIA_FGL_REPLAY_CHECK").is_some()
+                    || std::env::var_os("LEGAIA_FGL_RECORD").is_some();
+                let rng_at_start = session.host.world.rng_state;
+                if checking {
+                    REC.with(|r| *r.borrow_mut() = Some(Vec::new()));
+                }
                 let r = traverse(&mut session, graph, to, true, &mut trail)
                     .map_err(|e| format!("{e} [trail {}]", trail.join(">")));
+                let log = REC.with(|r| r.borrow_mut().take());
+                if let (Some(log), true) = (log, r.is_ok()) {
+                    let ticks = log.iter().filter(|e| matches!(e, RecEv::Tick)).count();
+                    if let Some(dir) = std::env::var_os("LEGAIA_FGL_RECORD") {
+                        let path = Path::new(&dir).join(format!("{}.stream", to.id));
+                        match write_stream(&path, &log) {
+                            Ok(()) => eprintln!(
+                                "    [record] {} events, {ticks} ticks -> {}",
+                                log.len(),
+                                path.display()
+                            ),
+                            Err(e) => eprintln!("    [record] write {}: {e}", path.display()),
+                        }
+                    }
+                    if std::env::var_os("LEGAIA_FGL_REPLAY_CHECK").is_some() {
+                        let want = replay_fingerprint(&session);
+                        let mut fresh = open_session(&inp.extracted);
+                        let landed = seed(&mut fresh, from, from_anchor, &opts);
+                        fresh.host.world.rng_state = rng_at_start;
+                        replay_stream(&mut fresh, &log);
+                        let got = replay_fingerprint(&fresh);
+                        if landed.is_ok() && got == want {
+                            eprintln!("    [replay] MATCH over {ticks} ticks: {want}");
+                        } else {
+                            eprintln!("    [replay] DIVERGED over {ticks} ticks");
+                            eprintln!("      want {want}");
+                            eprintln!("      got  {got} (seed {landed:?})");
+                        }
+                    }
+                }
                 if std::env::var_os("LEGAIA_FGL_TRACE").is_some() {
                     let (n, cells) = PLAN_STATS.with(std::cell::Cell::take);
                     eprintln!(

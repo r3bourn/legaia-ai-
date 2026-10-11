@@ -198,4 +198,17 @@
     if (!bit || !PAD) return [];
     return Object.keys(PAD).filter((code) => PAD[code] === bit);
   };
+
+  /* The AI spectator helper is intentionally a separate file so upstream's
+   * giant play frame loop remains untouched. `play.html` already loads this
+   * shared pad module, and the play page exposes its runtime as
+   * `window.__playRuntime`; dynamically loading the helper here gives the
+   * fork one tiny integration seam while leaving minigames and viewer pages
+   * unchanged. */
+  if (typeof document !== 'undefined' && /(?:^|\/)play\.html$/.test(location.pathname)) {
+    const script = document.createElement('script');
+    script.src = 'js/ai-player.js';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
 }());

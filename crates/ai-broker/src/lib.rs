@@ -39,18 +39,14 @@ impl ProviderConfig {
 
         match provider.as_str() {
             "claude" => Ok(Self::Claude {
-                command: env::var("LEGAIA_CLAUDE_COMMAND")
-                    .unwrap_or_else(|_| "claude".to_string()),
+                command: env::var("LEGAIA_CLAUDE_COMMAND").unwrap_or_else(|_| "claude".to_string()),
             }),
             "codex" => Ok(Self::Codex {
-                command: env::var("LEGAIA_CODEX_COMMAND")
-                    .unwrap_or_else(|_| "codex".to_string()),
+                command: env::var("LEGAIA_CODEX_COMMAND").unwrap_or_else(|_| "codex".to_string()),
             }),
             "ollama" => Ok(Self::Ollama {
-                command: env::var("LEGAIA_OLLAMA_COMMAND")
-                    .unwrap_or_else(|_| "ollama".to_string()),
-                model: env::var("LEGAIA_OLLAMA_MODEL")
-                    .unwrap_or_else(|_| "qwen3:8b".to_string()),
+                command: env::var("LEGAIA_OLLAMA_COMMAND").unwrap_or_else(|_| "ollama".to_string()),
+                model: env::var("LEGAIA_OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:8b".to_string()),
             }),
             other => bail!("unsupported LEGAIA_AI_PROVIDER: {other}"),
         }
@@ -69,8 +65,8 @@ pub fn decide(config: &ProviderConfig, request: &DecisionRequest) -> Result<Deci
 }
 
 pub fn build_prompt(request: &DecisionRequest) -> Result<String> {
-    let state = serde_json::to_string_pretty(&request.state)
-        .context("failed to serialize game state")?;
+    let state =
+        serde_json::to_string_pretty(&request.state).context("failed to serialize game state")?;
 
     let walkthrough = request
         .walkthrough_context
@@ -243,9 +239,8 @@ mod tests {
 
     #[test]
     fn rejects_out_of_range_confidence() {
-        let result = parse_decision(
-            r#"{"action":"navigate","target":null,"reason":"x","confidence":1.5}"#,
-        );
+        let result =
+            parse_decision(r#"{"action":"navigate","target":null,"reason":"x","confidence":1.5}"#);
         assert!(result.is_err());
     }
 }

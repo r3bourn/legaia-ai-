@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow, bail};
 use legaia_ai_broker::{DecisionRequest, ProviderConfig, decide};
 use legaia_ai_controller::TelemetrySnapshot;
-use legaia_ai_orchestrator::{Directive, Orchestrator, OrchestrationStep};
+use legaia_ai_orchestrator::{Directive, OrchestrationStep, Orchestrator};
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -75,26 +75,26 @@ fn run_server() -> Result<()> {
     let mut orchestrator = load_orchestrator()?;
 
     if !addr.ip().is_loopback() && bearer.is_none() {
-        bail!(
-            "refusing to bind AI broker to non-loopback {addr} without LEGAIA_AI_BEARER_TOKEN"
-        );
+        bail!("refusing to bind AI broker to non-loopback {addr} without LEGAIA_AI_BEARER_TOKEN");
     }
 
-    let listener = TcpListener::bind(addr)
-        .with_context(|| format!("failed to bind AI broker to {addr}"))?;
+    let listener =
+        TcpListener::bind(addr).with_context(|| format!("failed to bind AI broker to {addr}"))?;
     eprintln!(
         "legaia-ai-broker: listening on http://{addr} (guide={})",
-        if orchestrator.is_some() { "loaded" } else { "none" }
+        if orchestrator.is_some() {
+            "loaded"
+        } else {
+            "none"
+        }
     );
 
     for incoming in listener.incoming() {
         match incoming {
             Ok(mut stream) => {
-                if let Err(err) = handle_connection(
-                    &mut stream,
-                    bearer.as_deref(),
-                    &mut orchestrator,
-                ) {
+                if let Err(err) =
+                    handle_connection(&mut stream, bearer.as_deref(), &mut orchestrator)
+                {
                     eprintln!("legaia-ai-broker: request error: {err:#}");
                     let _ = write_json_error(&mut stream, 500, "internal broker error");
                 }
@@ -214,7 +214,11 @@ fn handle_guide(
     orchestrator: &mut Option<Orchestrator>,
 ) -> Result<()> {
     if orchestrator.is_none() {
-        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+        return write_json_error(
+            stream,
+            503,
+            "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH",
+        );
     }
     let step = match guide_step(body, orchestrator) {
         Ok(step) => step,
@@ -230,15 +234,23 @@ fn handle_step(
     orchestrator: &mut Option<Orchestrator>,
 ) -> Result<()> {
     if orchestrator.is_none() {
-        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+        return write_json_error(
+            stream,
+            503,
+            "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH",
+        );
     }
     let state = match parse_telemetry(body) {
         Ok(state) => state,
-        Err(err) => return write_json_error(stream, 400, &format!("invalid telemetry JSON: {err}")),
+        Err(err) => {
+            return write_json_error(stream, 400, &format!("invalid telemetry JSON: {err}"));
+        }
     };
     let step = match orchestrator.as_mut().expect("checked").step(&state) {
         Ok(step) => step,
-        Err(err) => return write_json_error(stream, 400, &format!("guide orchestration failed: {err:#}")),
+        Err(err) => {
+            return write_json_error(stream, 400, &format!("guide orchestration failed: {err:#}"));
+        }
     };
 
     let decision = if let Directive::NeedDecision {
@@ -269,7 +281,11 @@ fn handle_guide_advance(
     orchestrator: &mut Option<Orchestrator>,
 ) -> Result<()> {
     let Some(orchestrator) = orchestrator.as_mut() else {
-        return write_json_error(stream, 503, "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH");
+        return write_json_error(
+            stream,
+            503,
+            "no checkpoint guide is loaded; set LEGAIA_GUIDE_PATH",
+        );
     };
     let advanced = orchestrator.manual_advance();
     let body = serde_json::to_vec(&serde_json::json!({
@@ -314,11 +330,15 @@ fn read_http_request(stream: &mut TcpStream) -> Result<HttpRequest> {
     let head = std::str::from_utf8(&bytes[..header_end - 4])
         .context("HTTP headers are not valid UTF-8")?;
     let mut lines = head.split("\r\n");
-    let request_line = lines.next().ok_or_else(|| anyhow!("missing request line"))?;
+    let request_line = lines
+        .next()
+        .ok_or_else(|| anyhow!("missing request line"))?;
     let mut parts = request_line.split_whitespace();
     let method = parts.next().ok_or_else(|| anyhow!("missing HTTP method"))?;
     let path = parts.next().ok_or_else(|| anyhow!("missing HTTP path"))?;
-    let version = parts.next().ok_or_else(|| anyhow!("missing HTTP version"))?;
+    let version = parts
+        .next()
+        .ok_or_else(|| anyhow!("missing HTTP version"))?;
     if parts.next().is_some() || !version.starts_with("HTTP/1.") {
         bail!("unsupported HTTP request line");
     }
@@ -341,6 +361,10 @@ fn read_http_request(stream: &mut TcpStream) -> Result<HttpRequest> {
         bail!("HTTP body exceeds request size limit");
     }
 
+    // Own the request-line fields before the body read grows `bytes`.
+    let method = method.to_string();
+    let path = path.split('?').next().unwrap_or(path).to_string();
+
     let target_len = header_end + content_length;
     while bytes.len() < target_len {
         let want = (target_len - bytes.len()).min(buf.len());
@@ -354,8 +378,8 @@ fn read_http_request(stream: &mut TcpStream) -> Result<HttpRequest> {
     }
 
     Ok(HttpRequest {
-        method: method.to_string(),
-        path: path.split('?').next().unwrap_or(path).to_string(),
+        method,
+        path,
         headers,
         body: bytes[header_end..target_len].to_vec(),
     })
@@ -370,7 +394,12 @@ fn write_json_error(stream: &mut TcpStream, status: u16, message: &str) -> Resul
     write_response(stream, status, "application/json", &body)
 }
 
-fn write_response(stream: &mut TcpStream, status: u16, content_type: &str, body: &[u8]) -> Result<()> {
+fn write_response(
+    stream: &mut TcpStream,
+    status: u16,
+    content_type: &str,
+    body: &[u8],
+) -> Result<()> {
     let reason = match status {
         200 => "OK",
         204 => "No Content",

@@ -13,3 +13,6 @@ serde.workspace = true
 legaia-ai-controller.workspace = true
 legaia-engine-core.workspace = true
 legaia-engine-menus.workspace = true
+
+[dev-dependencies]
+legaia-save.workspace = true

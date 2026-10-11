@@ -47,9 +47,7 @@ use legaia_ai_controller::{
     AiController, BattleTelemetry, ControllerPlan, DialogTelemetry, EnemyTelemetry,
     GameMode as AiGameMode, PartyMemberTelemetry, PlayerTelemetry, TelemetrySnapshot, Vec3i,
 };
-use legaia_ai_navigation::{
-    NavigationConfig, NavigationResult, NavigationTarget, plan_field_step,
-};
+use legaia_ai_navigation::{NavigationConfig, NavigationResult, NavigationTarget, plan_field_step};
 use legaia_engine_core::input::Mapping;
 use legaia_engine_core::world::SceneMode;
 use std::cell::RefCell;
@@ -309,15 +307,9 @@ impl LegaiaRuntime {
             .unwrap_or(&self.world);
         let target = NavigationTarget { x, z, radius };
         match plan_field_step(world, target, NavigationConfig::default()) {
-            Ok(NavigationResult::Reached) => {
-                serde_json::json!({"status":"reached"}).to_string()
-            }
-            Ok(NavigationResult::NoPlayer) => {
-                serde_json::json!({"status":"no_player"}).to_string()
-            }
-            Ok(NavigationResult::NoPath) => {
-                serde_json::json!({"status":"no_path"}).to_string()
-            }
+            Ok(NavigationResult::Reached) => serde_json::json!({"status":"reached"}).to_string(),
+            Ok(NavigationResult::NoPlayer) => serde_json::json!({"status":"no_player"}).to_string(),
+            Ok(NavigationResult::NoPath) => serde_json::json!({"status":"no_path"}).to_string(),
             Ok(NavigationResult::Step(step)) => {
                 let queued = AI_CONTROLLER.with(|c| c.borrow_mut().replace_plan(step.plan));
                 match queued {
@@ -402,7 +394,7 @@ impl LegaiaRuntime {
                     y: i32::from(actor.move_state.world_y),
                     z: i32::from(actor.move_state.world_z),
                 }),
-                heading: Some(actor.move_state.render_26 & 0x0fff),
+                heading: Some((actor.move_state.render_26 as u16) & 0x0fff),
             })
             .unwrap_or_default();
 
@@ -529,10 +521,8 @@ mod tests {
         let mut rt = LegaiaRuntime::new();
         rt.ai_disarm();
         rt.ai_arm(10.0);
-        rt.ai_set_plan_json(
-            r#"{"steps":[{"buttons":["up"],"frames":30}]}"#,
-        )
-        .unwrap();
+        rt.ai_set_plan_json(r#"{"steps":[{"buttons":["up"],"frames":30}]}"#)
+            .unwrap();
         assert_eq!(rt.ai_set_pad(0, 11.0), 0x0010);
         assert_eq!(rt.ai_set_pad(0x4000, 12.0), 0x4000);
         assert!(!rt.ai_authorized(13.0));

@@ -1212,6 +1212,70 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "legaia-ai-battle"
+version = "0.1.0"
+dependencies = [
+ "legaia-ai-controller",
+ "legaia-engine-core",
+ "legaia-engine-menus",
+ "legaia-save",
+ "serde",
+]
+
+[[package]]
+name = "legaia-ai-broker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "legaia-ai-controller",
+ "legaia-ai-orchestrator",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "legaia-ai-controller"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "legaia-engine-vm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "legaia-ai-guide"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "legaia-ai-controller",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
+name = "legaia-ai-navigation"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "legaia-ai-controller",
+ "legaia-engine-core",
+ "serde",
+]
+
+[[package]]
+name = "legaia-ai-orchestrator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "legaia-ai-controller",
+ "legaia-ai-guide",
+ "serde",
+]
+
+[[package]]
 name = "legaia-anm"
 version = "0.1.0"
 dependencies = [
@@ -1998,6 +2062,9 @@ dependencies = [
  "console_error_panic_hook",
  "glam",
  "js-sys",
+ "legaia-ai-battle",
+ "legaia-ai-controller",
+ "legaia-ai-navigation",
  "legaia-art",
  "legaia-asset",
  "legaia-engine-audio",

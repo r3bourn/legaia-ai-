@@ -14,16 +14,25 @@ pub struct RoutineBattlePolicy {
 
 impl Default for RoutineBattlePolicy {
     fn default() -> Self {
-        Self { min_hp_fraction: 0.35 }
+        Self {
+            min_hp_fraction: 0.35,
+        }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BattleDirective {
-    Controller { plan: ControllerPlan, reason: String },
-    Wait { reason: String },
-    NeedDecision { reason: String },
+    Controller {
+        plan: ControllerPlan,
+        reason: String,
+    },
+    Wait {
+        reason: String,
+    },
+    NeedDecision {
+        reason: String,
+    },
     NotInBattle,
 }
 
@@ -75,22 +84,14 @@ pub fn routine_battle_step(world: &World, policy: RoutineBattlePolicy) -> Battle
     };
 
     match &command.phase {
-        CommandPhase::RoundPrompt { .. } => tap(
-            Button::Left,
-            "choose Begin at the round prompt",
-        ),
-        CommandPhase::Menu { .. } => tap(
-            Button::Left,
-            "choose Attack from the battle command ring",
-        ),
-        CommandPhase::AttackMode { .. } => tap(
-            Button::Left,
-            "choose Auto attack mode",
-        ),
-        CommandPhase::Targeting { .. } => tap(
-            Button::Cross,
-            "confirm the current living enemy target",
-        ),
+        CommandPhase::RoundPrompt { .. } => tap(Button::Left, "choose Begin at the round prompt"),
+        CommandPhase::Menu { .. } => {
+            tap(Button::Left, "choose Attack from the battle command ring")
+        }
+        CommandPhase::AttackMode { .. } => tap(Button::Left, "choose Auto attack mode"),
+        CommandPhase::Targeting { .. } => {
+            tap(Button::Cross, "confirm the current living enemy target")
+        }
         CommandPhase::CommitConfirm { .. } => tap(
             Button::Left,
             "confirm Begin after party commands are staged",
@@ -109,11 +110,11 @@ pub fn routine_battle_step(world: &World, policy: RoutineBattlePolicy) -> Battle
             reason: "battle command is resolving; wait for the next semantic phase".into(),
         },
 
-        CommandPhase::OpenArtsMenu
-        | CommandPhase::OpenSpellMenu
-        | CommandPhase::OpenItemMenu => BattleDirective::NeedDecision {
-            reason: "battle handed off to a non-routine submenu".into(),
-        },
+        CommandPhase::OpenArtsMenu | CommandPhase::OpenSpellMenu | CommandPhase::OpenItemMenu => {
+            BattleDirective::NeedDecision {
+                reason: "battle handed off to a non-routine submenu".into(),
+            }
+        }
     }
 }
 
@@ -145,6 +146,22 @@ mod tests {
     use super::*;
     use legaia_engine_menus::battle_input::BattleCommandSession;
 
+    /// A battle world with one party member at `hp_cur`/`hp_max`. The routine
+    /// health gate escalates when a counted member has no roster record, so
+    /// phase tests need a real record, not just `party_count`.
+    fn battle_world(hp_cur: u16, hp_max: u16) -> World {
+        let mut world = World::new();
+        let mut party = legaia_save::Party::zeroed(1);
+        let mut hms = party.members[0].hp_mp_sp();
+        hms.hp_max = hp_max;
+        hms.hp_cur = hp_cur;
+        party.members[0].set_hp_mp_sp(hms);
+        world.load_party(party);
+        world.party.party_count = 1;
+        world.mode = SceneMode::Battle;
+        world
+    }
+
     #[test]
     fn outside_battle_does_nothing() {
         let world = World::new();
@@ -156,11 +173,14 @@ mod tests {
 
     #[test]
     fn round_prompt_starts_with_left_begin() {
-        let mut world = World::new();
-        world.mode = SceneMode::Battle;
-        world.party.party_count = 1;
+        let mut world = battle_world(200, 200);
         world.battle.command = Some(BattleCommandSession::new_round_open(0, 0, false));
-        let out = routine_battle_step(&world, RoutineBattlePolicy { min_hp_fraction: 0.0 });
+        let out = routine_battle_step(
+            &world,
+            RoutineBattlePolicy {
+                min_hp_fraction: 0.0,
+            },
+        );
         match out {
             BattleDirective::Controller { plan, .. } => {
                 assert_eq!(plan.steps[0].buttons, vec![Button::Left]);
@@ -171,16 +191,29 @@ mod tests {
 
     #[test]
     fn menu_chooses_attack_with_left() {
-        let mut world = World::new();
-        world.mode = SceneMode::Battle;
-        world.party.party_count = 1;
+        let mut world = battle_world(200, 200);
         world.battle.command = Some(BattleCommandSession::new(0, 0));
-        let out = routine_battle_step(&world, RoutineBattlePolicy { min_hp_fraction: 0.0 });
+        let out = routine_battle_step(
+            &world,
+            RoutineBattlePolicy {
+                min_hp_fraction: 0.0,
+            },
+        );
         match out {
             BattleDirective::Controller { plan, .. } => {
                 assert_eq!(plan.steps[0].buttons, vec![Button::Left]);
             }
             other => panic!("unexpected directive: {other:?}"),
         }
+    }
+
+    #[test]
+    fn low_hp_escalates_instead_of_attacking() {
+        let mut world = battle_world(50, 200);
+        world.battle.command = Some(BattleCommandSession::new(0, 0));
+        assert!(matches!(
+            routine_battle_step(&world, RoutineBattlePolicy::default()),
+            BattleDirective::NeedDecision { .. }
+        ));
     }
 }

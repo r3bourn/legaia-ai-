@@ -168,7 +168,8 @@ pub fn plan_field_step(
     let next = coords(cursor);
     let desired_world_dir = world_direction(start, next)
         .ok_or_else(|| anyhow::anyhow!("navigation path produced a non-cardinal first step"))?;
-    let raw_screen_dir = raw_direction_for_world(desired_world_dir, world.locomotion.camera_azimuth);
+    let raw_screen_dir =
+        raw_direction_for_world(desired_world_dir, world.locomotion.camera_azimuth);
     let buttons = buttons_for_direction(raw_screen_dir);
     if buttons.is_empty() {
         return Ok(NavigationResult::NoPath);
@@ -200,7 +201,8 @@ fn direct_finish_step(
     if desired_world_dir == 0 {
         return NavigationResult::Reached;
     }
-    let raw_screen_dir = raw_direction_for_world(desired_world_dir, world.locomotion.camera_azimuth);
+    let raw_screen_dir =
+        raw_direction_for_world(desired_world_dir, world.locomotion.camera_azimuth);
     let buttons = buttons_for_direction(raw_screen_dir);
     if buttons.is_empty() {
         return NavigationResult::NoPath;
@@ -384,7 +386,10 @@ mod tests {
             buttons_for_direction(0x3000),
             vec![Button::Up, Button::Right]
         );
-        assert_eq!(buttons_for_direction(0xC000), vec![Button::Down, Button::Left]);
+        assert_eq!(
+            buttons_for_direction(0xC000),
+            vec![Button::Down, Button::Left]
+        );
     }
 
     #[test]
@@ -401,7 +406,11 @@ mod tests {
 
     #[test]
     fn target_radius_is_euclidean() {
-        let target = NavigationTarget { x: 100, z: 100, radius: 10 };
+        let target = NavigationTarget {
+            x: 100,
+            z: 100,
+            radius: 10,
+        };
         assert!(target.reached(106, 106));
         assert!(!target.reached(111, 100));
     }

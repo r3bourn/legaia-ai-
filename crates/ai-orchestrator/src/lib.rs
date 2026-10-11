@@ -123,14 +123,16 @@ impl Orchestrator {
         context: String,
     ) -> Directive {
         match checkpoint.action {
-            CheckpointAction::Navigate => checkpoint
-                .target
-                .map(navigate)
-                .unwrap_or_else(|| Directive::NeedDecision {
-                    objective: checkpoint.objective.clone(),
-                    walkthrough_context: context,
-                    reason: "navigate checkpoint has no coordinate target".into(),
-                }),
+            CheckpointAction::Navigate => {
+                checkpoint
+                    .target
+                    .map(navigate)
+                    .unwrap_or_else(|| Directive::NeedDecision {
+                        objective: checkpoint.objective.clone(),
+                        walkthrough_context: context,
+                        reason: "navigate checkpoint has no coordinate target".into(),
+                    })
+            }
 
             CheckpointAction::Interact => {
                 if let Some(target) = checkpoint.target {

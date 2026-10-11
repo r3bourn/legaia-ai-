@@ -90,16 +90,30 @@ impl Checkpoint {
     }
 
     pub fn is_complete(&self, state: &TelemetrySnapshot) -> bool {
+        // Field coordinates are per-scene, so a target only counts in the
+        // checkpoint's own scene: the same x/z in another map must not
+        // complete it. Scene-based rules are unaffected.
+        let target = self
+            .target
+            .as_ref()
+            .filter(|_| self.in_expected_scene(state));
+
         if let Some(rule) = &self.completion {
-            return rule.matches(state, self.target.as_ref());
+            return rule.matches(state, target);
         }
 
         // A coordinate checkpoint has a useful safe default. Everything else
         // requires an explicit rule or manual advancement, avoiding accidental
         // story skips caused by guessing what a prose objective meant.
-        self.target
-            .as_ref()
-            .is_some_and(|target| target.reached(state))
+        target.is_some_and(|target| target.reached(state))
+    }
+
+    /// True when the checkpoint names no scene, telemetry has no scene yet, or
+    /// the reported scene matches.
+    fn in_expected_scene(&self, state: &TelemetrySnapshot) -> bool {
+        self.scene
+            .as_deref()
+            .is_none_or(|scene| state.scene.is_empty() || state.scene == scene)
     }
 
     pub fn concise_context(&self) -> String {
@@ -197,7 +211,9 @@ impl CompletionRule {
             Self::DialogClosed => state.dialog.as_ref().is_none_or(|d| !d.active),
             Self::FrameAtLeast { frame } => state.frame >= *frame,
             Self::Any { rules } => rules.iter().any(|r| r.matches(state, target)),
-            Self::All { rules } => !rules.is_empty() && rules.iter().all(|r| r.matches(state, target)),
+            Self::All { rules } => {
+                !rules.is_empty() && rules.iter().all(|r| r.matches(state, target))
+            }
         }
     }
 }
@@ -317,7 +333,11 @@ checkpoints:
             id: "a".into(),
             objective: "walk".into(),
             scene: None,
-            target: Some(GuideTarget { x: 100, z: 100, radius: 10 }),
+            target: Some(GuideTarget {
+                x: 100,
+                z: 100,
+                radius: 10,
+            }),
             action: CheckpointAction::Navigate,
             completion: None,
             notes: vec![],
@@ -325,6 +345,33 @@ checkpoints:
         };
         assert!(cp.is_complete(&state(106, 106)));
         assert!(!cp.is_complete(&state(120, 100)));
+    }
+
+    #[test]
+    fn target_in_another_scene_does_not_complete() {
+        let mut cp = Checkpoint {
+            id: "a".into(),
+            objective: "walk".into(),
+            scene: Some("town01".into()),
+            target: Some(GuideTarget {
+                x: 100,
+                z: 100,
+                radius: 10,
+            }),
+            action: CheckpointAction::Navigate,
+            completion: None,
+            notes: vec![],
+            optional: false,
+        };
+        let mut here = state(100, 100);
+        here.scene = "town01".into();
+        let mut elsewhere = state(100, 100);
+        elsewhere.scene = "town02".into();
+        assert!(cp.is_complete(&here));
+        assert!(!cp.is_complete(&elsewhere));
+        cp.completion = Some(CompletionRule::NearTarget);
+        assert!(cp.is_complete(&here));
+        assert!(!cp.is_complete(&elsewhere));
     }
 
     #[test]
@@ -339,7 +386,9 @@ checkpoints:
                     scene: None,
                     target: None,
                     action: CheckpointAction::Observe,
-                    completion: Some(CompletionRule::SceneIs { scene: "town01".into() }),
+                    completion: Some(CompletionRule::SceneIs {
+                        scene: "town01".into(),
+                    }),
                     notes: vec![],
                     optional: false,
                 },

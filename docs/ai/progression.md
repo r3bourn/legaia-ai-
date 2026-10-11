@@ -24,7 +24,7 @@ Each `[[milestone]]` has:
 - `equipment`: desired equipment goals. Each entry is `{ party, slot, id, name, priority, reason }`. `party` is `vahn`, `noa`, or `gala`; `slot` is `weapon`, `head`, `body`, `boots`, or an accessory slot (`goods1`..`goods3`). The live planner may keep a better already-equipped item.
 - `must_get`: high-value treasure/story-item goals. Each entry is `{ kind, name, id?, reason }`. `id` is omitted for Seru magic because Seru spell identity is not the shared inventory id space.
 - `seru`: absorb targets that are available in this stretch. These are names, not inventory ids.
-- `bosses`: zero or more boss policy records for bosses expected before the next milestone. Fields are `{ name, element, weakness, guard_id?, guard, healing, tactics }`. `guard_id` is present only when the guard is an inventory accessory from the shared item-id space.
+- `bosses`: zero or more boss policy records for bosses expected before the next milestone. Fields are `{ name, element, weakness, guard_id?, guard, healing, tactics }`. `guard_id` is present only when the guard is an inventory accessory from the shared item-id space. `element` describes the documented boss/attack affinity relevant to defensive guards. `weakness` is a separately researched offensive vulnerability or guide recommendation; the runtime must **not infer it automatically as the opposite of `element`**. Old Legaia research explicitly shows that attack element and damage susceptibility are not the same measurement. If a weakness is not independently established, treat it as unknown and prefer observed damage/Arts rather than an inferred elemental counter.
 - `notes`: compact planner notes for constraints that do not fit another field.
 
 All inventory ids are hexadecimal `u8` values in Legaia's shared 256-entry item space. The ids are cross-checked against the item list embedded in Meth962's GameFAQs walkthrough and the repository's item/equipment tables. Examples: Healing Leaf `0x77`, Deep Sea Jewel `0xDE`, Defender Chain `0xD4`, Astral Sword `0xBA`, Point Card `0xFE`.
@@ -62,5 +62,6 @@ Progression data is advisory and must be evaluated against live state.
 - `must_get` entries marked by story progression are mandatory; optional power/collection pickups can be skipped by a non-100%-completion profile.
 - Seru absorb goals should use the live encounter table and stop after capture. Ivory Book (`0xEE`) can be prioritized once available for rare late Seru.
 - Before a boss, boss-specific guard/status protection takes priority over generic damage accessories when the live party is near the lower end of the recommended level range.
+- Never derive a boss weakness mechanically from its attack element. Use only a documented vulnerability or live observed damage; otherwise treat weakness as unknown.
 
 The intended consumer is the live pad player/orchestrator. It should treat the file as a set of goals and constraints, never as a prerecorded button script.

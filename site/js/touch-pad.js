@@ -26,7 +26,8 @@
   window.legaiaVirtualPadButtons = held;
 
   const CSS = `
-  .lgp-toggle { position: fixed; left: 12px; bottom: 12px; z-index: 2147483646;
+  .lgp-toggle { position: fixed; right: 12px; top: max(76px, calc(env(safe-area-inset-top) + 64px));
+    z-index: 2147483647;
     padding: 10px 14px; font: 600 15px -apple-system, system-ui, sans-serif;
     color: #eee; background: rgba(12,14,20,.92); border: 1px solid rgba(255,255,255,.3);
     border-radius: 10px; }
@@ -240,6 +241,18 @@
     toggle.textContent = 'Phone mode';
     toggle.addEventListener('click', () => setPhoneMode(true));
     document.body.appendChild(toggle);
+    /* The page's own Fullscreen button is disabled where the Fullscreen API
+     * is missing (every iPhone browser). On a touch device it becomes the
+     * phone-mode entry instead: a clone sheds play.html's listener. */
+    const fsBtn = document.getElementById('play-fullscreen');
+    if (fsBtn) {
+      const phoneBtn = fsBtn.cloneNode(false);
+      phoneBtn.disabled = false;
+      phoneBtn.title = 'Fill the screen with on-screen controls';
+      phoneBtn.textContent = '⛶ Phone mode';
+      phoneBtn.addEventListener('click', () => setPhoneMode(true));
+      fsBtn.replaceWith(phoneBtn);
+    }
     addEventListener('resize', () => { if (document.body.classList.contains('lgp-phone')) layout(pad); });
     /* A held button must not stick when the page is hidden mid-press. */
     document.addEventListener('visibilitychange', () => { if (document.hidden) held.clear(); });

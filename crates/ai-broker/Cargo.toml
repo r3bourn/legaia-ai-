@@ -18,3 +18,4 @@ serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 legaia-ai-controller.workspace = true
+legaia-ai-orchestrator.workspace = true

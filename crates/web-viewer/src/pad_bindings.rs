@@ -44,7 +44,11 @@
 
 use crate::runtime::LegaiaRuntime;
 use legaia_ai_controller::{
-    AiController, ControllerPlan, GameMode as AiGameMode, PlayerTelemetry, TelemetrySnapshot, Vec3i,
+    AiController, BattleTelemetry, ControllerPlan, DialogTelemetry, EnemyTelemetry,
+    GameMode as AiGameMode, PartyMemberTelemetry, PlayerTelemetry, TelemetrySnapshot, Vec3i,
+};
+use legaia_ai_navigation::{
+    NavigationConfig, NavigationResult, NavigationTarget, plan_field_step,
 };
 use legaia_engine_core::input::Mapping;
 use legaia_engine_core::world::SceneMode;
@@ -282,6 +286,63 @@ impl LegaiaRuntime {
             .map_err(|e| JsValue::from_str(&format!("ai plan rejected: {e}")))
     }
 
+    /// Queue one short collision-aware field-navigation burst toward a
+    /// world-space target. The call never teleports and never holds input
+    /// indefinitely: when the current queue is busy it simply reports busy;
+    /// when idle it BFS-plans from the engine's live collision/floor grids and
+    /// queues a short burst that will be re-planned after new telemetry.
+    pub fn ai_navigate_to(&mut self, x: i32, z: i32, radius: u32, now_ms: f64) -> String {
+        let now = ai_now_ms(now_ms);
+        let authorized = AI_CONTROLLER.with(|c| c.borrow().authority().authorized(now));
+        if !authorized {
+            return serde_json::json!({"status":"unauthorized"}).to_string();
+        }
+        let idle = AI_CONTROLLER.with(|c| c.borrow().is_idle());
+        if !idle {
+            return serde_json::json!({"status":"busy"}).to_string();
+        }
+
+        let world = self
+            .scene_host
+            .host()
+            .map(|h| &h.world)
+            .unwrap_or(&self.world);
+        let target = NavigationTarget { x, z, radius };
+        match plan_field_step(world, target, NavigationConfig::default()) {
+            Ok(NavigationResult::Reached) => {
+                serde_json::json!({"status":"reached"}).to_string()
+            }
+            Ok(NavigationResult::NoPlayer) => {
+                serde_json::json!({"status":"no_player"}).to_string()
+            }
+            Ok(NavigationResult::NoPath) => {
+                serde_json::json!({"status":"no_path"}).to_string()
+            }
+            Ok(NavigationResult::Step(step)) => {
+                let queued = AI_CONTROLLER.with(|c| c.borrow_mut().replace_plan(step.plan));
+                match queued {
+                    Ok(()) => serde_json::json!({
+                        "status":"queued",
+                        "next_x":step.next_x,
+                        "next_z":step.next_z,
+                        "remaining_cells":step.remaining_cells,
+                    })
+                    .to_string(),
+                    Err(err) => serde_json::json!({
+                        "status":"rejected",
+                        "error":err.to_string(),
+                    })
+                    .to_string(),
+                }
+            }
+            Err(err) => serde_json::json!({
+                "status":"error",
+                "error":err.to_string(),
+            })
+            .to_string(),
+        }
+    }
+
     /// Whether the AI currently holds a valid watcher lease and has not been
     /// displaced by manual input.
     pub fn ai_authorized(&self, now_ms: f64) -> bool {
@@ -324,10 +385,6 @@ impl LegaiaRuntime {
     }
 
     /// Semantic game state for the external AI broker.
-    ///
-    /// This first schema intentionally publishes only fields already owned by
-    /// the engine as named semantic state. Party/battle/detail expansion can
-    /// happen additively without making the AI scrape pixels or raw RAM.
     pub fn ai_telemetry_json(&self) -> String {
         let world = self
             .scene_host
@@ -349,17 +406,80 @@ impl LegaiaRuntime {
             })
             .unwrap_or_default();
 
+        let party = (0..usize::from(world.party.party_count.min(3)))
+            .filter_map(|member| {
+                let roster_slot = world.party_roster_slot(member);
+                let record = world.party.roster.members.get(roster_slot)?;
+                let hms = record.hp_mp_sp();
+                Some(PartyMemberTelemetry {
+                    name: world.party_name(roster_slot).to_string(),
+                    hp: u32::from(hms.hp_cur),
+                    hp_max: u32::from(hms.hp_max),
+                    mp: u32::from(hms.mp_cur),
+                    mp_max: u32::from(hms.mp_max),
+                    ap: u32::from(hms.sp_cur),
+                    level: u32::from(record.level().max(1)),
+                    status: Vec::new(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let dialog_active = world.dialog.current.is_some()
+            || world.dialog.inline.is_some()
+            || world.dialog.three_actor_talk.is_some();
+        let dialog = dialog_active.then_some(DialogTelemetry {
+            active: true,
+            can_advance: true,
+            choice_count: 0,
+        });
+
+        let battle = (world.mode == SceneMode::Battle).then(|| {
+            let party_count = usize::from(world.party.party_count.min(3));
+            let enemies = world
+                .actors
+                .iter()
+                .enumerate()
+                .skip(party_count)
+                .filter(|(_, actor)| actor.battle_monster_id.is_some() || actor.battle.max_hp > 0)
+                .filter_map(|(slot, actor)| {
+                    let slot = u8::try_from(slot).ok()?;
+                    Some(EnemyTelemetry {
+                        slot,
+                        name: None,
+                        hp: Some(u32::from(actor.battle.hp)),
+                        hp_max: Some(u32::from(actor.battle.max_hp)),
+                        alive: actor.battle.hp > 0,
+                    })
+                })
+                .collect();
+            let phase = if world.battle.victory.is_some() {
+                "results"
+            } else if world.battle.end.is_some() {
+                "ending"
+            } else {
+                "active"
+            };
+            BattleTelemetry {
+                phase: phase.to_string(),
+                enemies,
+                active_party_slot: None,
+            }
+        });
+
         let snapshot = TelemetrySnapshot {
             schema_version: legaia_ai_controller::TELEMETRY_SCHEMA_VERSION,
             frame: world.frame,
             mode: ai_game_mode(world.mode),
             scene: world.active_scene_label.clone(),
             player,
-            party: Vec::new(),
-            battle: None,
-            dialog: None,
+            party,
+            battle,
+            dialog,
             menu_open: world.mode == SceneMode::Menu,
-            story: serde_json::Value::Null,
+            story: serde_json::json!({
+                "money": world.party.money,
+                "party_count": world.party.party_count,
+            }),
         };
 
         serde_json::to_string(&snapshot).unwrap_or_else(|_| "{}".to_string())
@@ -426,5 +546,6 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&rt.ai_telemetry_json()).unwrap();
         assert_eq!(v["schema_version"].as_u64(), Some(1));
         assert_eq!(v["mode"].as_str(), Some("title"));
+        assert!(v["party"].is_array());
     }
 }

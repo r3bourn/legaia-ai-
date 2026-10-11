@@ -9,6 +9,11 @@ const SUBCELL_SIZE: i32 = 64;
 const SUBCELL_CENTER: i32 = SUBCELL_SIZE / 2;
 const SUBCELL_STRIDE: i32 = 256;
 const SUBCELL_COUNT: usize = (SUBCELL_STRIDE as usize) * (SUBCELL_STRIDE as usize);
+/// Every point in a 64x64 routing cell is within ~45.3 units of its center.
+/// Expanding only the BFS goal to 48 guarantees a reachable cell center can
+/// represent a smaller user checkpoint; the final approach still honors the
+/// checkpoint's exact radius.
+const ROUTING_RADIUS_MIN: u32 = 48;
 const DIR_RING: [u16; 8] = [
     0x1000, 0x3000, 0x2000, 0x6000, 0x4000, 0xC000, 0x8000, 0x9000,
 ];
@@ -106,14 +111,41 @@ pub fn plan_field_step(
         return Ok(NavigationResult::NoPath);
     }
 
-    let Some((goal_idx, parents, visited)) = bfs_to_target(world, start, target, config.max_nodes)
+    // If both points already occupy the same authored collision cell, BFS has
+    // nothing useful to add. Finish with a short camera-aware direct burst and
+    // re-observe immediately afterward.
+    let target_cell = to_subcell(target.x, target.z);
+    if start == target_cell {
+        return Ok(direct_finish_step(
+            world,
+            start_world,
+            target,
+            config.burst_frames,
+        ));
+    }
+
+    // BFS works on cell centers. A tiny checkpoint radius can otherwise have
+    // no center inside it at all, even though the target lies on perfectly
+    // walkable floor. Widen only the routing goal enough to reach the target's
+    // cell neighborhood; once there, direct_finish_step closes the exact gap.
+    let routing_target = NavigationTarget {
+        radius: target.radius.max(ROUTING_RADIUS_MIN),
+        ..target
+    };
+    let Some((goal_idx, parents, visited)) =
+        bfs_to_target(world, start, routing_target, config.max_nodes)
     else {
         return Ok(NavigationResult::NoPath);
     };
 
     let start_idx = index(start.0, start.1);
     if goal_idx == start_idx {
-        return Ok(NavigationResult::Reached);
+        return Ok(direct_finish_step(
+            world,
+            start_world,
+            target,
+            config.burst_frames,
+        ));
     }
 
     // Walk parent links from the goal back until the next node is directly
@@ -156,6 +188,35 @@ pub fn plan_field_step(
         next_z,
         remaining_cells: remaining.min(visited),
     }))
+}
+
+fn direct_finish_step(
+    world: &World,
+    from: (i32, i32),
+    target: NavigationTarget,
+    burst_frames: u16,
+) -> NavigationResult {
+    let desired_world_dir = world_direction_toward(from, (target.x, target.z));
+    if desired_world_dir == 0 {
+        return NavigationResult::Reached;
+    }
+    let raw_screen_dir = raw_direction_for_world(desired_world_dir, world.locomotion.camera_azimuth);
+    let buttons = buttons_for_direction(raw_screen_dir);
+    if buttons.is_empty() {
+        return NavigationResult::NoPath;
+    }
+
+    NavigationResult::Step(NavigationStep {
+        plan: ControllerPlan {
+            steps: vec![
+                PadStep::held(buttons, burst_frames.min(4).max(1)),
+                PadStep::release(1),
+            ],
+        },
+        next_x: target.x,
+        next_z: target.z,
+        remaining_cells: 0,
+    })
 }
 
 fn bfs_to_target(
@@ -260,6 +321,21 @@ fn world_direction(from: (i32, i32), to: (i32, i32)) -> Option<u16> {
     }
 }
 
+fn world_direction_toward(from: (i32, i32), to: (i32, i32)) -> u16 {
+    match ((to.0 - from.0).signum(), (to.1 - from.1).signum()) {
+        (0, 0) => 0,
+        (0, 1) => 0x1000,
+        (1, 1) => 0x3000,
+        (1, 0) => 0x2000,
+        (1, -1) => 0x6000,
+        (0, -1) => 0x4000,
+        (-1, -1) => 0xC000,
+        (-1, 0) => 0x8000,
+        (-1, 1) => 0x9000,
+        _ => 0,
+    }
+}
+
 fn to_subcell(x: i32, z: i32) -> (i32, i32) {
     (x.div_euclid(SUBCELL_SIZE), z.div_euclid(SUBCELL_SIZE))
 }
@@ -309,6 +385,18 @@ mod tests {
             vec![Button::Up, Button::Right]
         );
         assert_eq!(buttons_for_direction(0xC000), vec![Button::Down, Button::Left]);
+    }
+
+    #[test]
+    fn exact_finish_direction_supports_all_eight_octants() {
+        assert_eq!(world_direction_toward((0, 0), (0, 10)), 0x1000);
+        assert_eq!(world_direction_toward((0, 0), (10, 10)), 0x3000);
+        assert_eq!(world_direction_toward((0, 0), (10, 0)), 0x2000);
+        assert_eq!(world_direction_toward((0, 0), (10, -10)), 0x6000);
+        assert_eq!(world_direction_toward((0, 0), (0, -10)), 0x4000);
+        assert_eq!(world_direction_toward((0, 0), (-10, -10)), 0xC000);
+        assert_eq!(world_direction_toward((0, 0), (-10, 0)), 0x8000);
+        assert_eq!(world_direction_toward((0, 0), (-10, 10)), 0x9000);
     }
 
     #[test]

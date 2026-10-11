@@ -60,11 +60,7 @@ pub type ShopBuyGoal = (u8, u8);
 
 /// Return the next shop pad edge, or `None` when the rich policy says Done,
 /// Wait, or Blocked. Prefer [`shop_buy_decision`] when diagnostics matter.
-pub fn shop_buy_pad(
-    world: &World,
-    menu: &MenuRuntime,
-    desired: &[ShopBuyGoal],
-) -> Option<u16> {
+pub fn shop_buy_pad(world: &World, menu: &MenuRuntime, desired: &[ShopBuyGoal]) -> Option<u16> {
     match shop_buy_decision(world, menu, desired) {
         PadDecision::Press(mask) => Some(mask),
         PadDecision::Done | PadDecision::Wait | PadDecision::Blocked(_) => None,
@@ -138,7 +134,8 @@ pub fn shop_buy_decision(
             }
         }
         Some(MenuState::ShopBuy) => {
-            let Some((row, item_id, target)) = first_stocked_unmet_goal(world, shop, desired) else {
+            let Some((row, item_id, target)) = first_stocked_unmet_goal(world, shop, desired)
+            else {
                 return PadDecision::Done;
             };
             let have = owned(world, item_id);
@@ -153,7 +150,11 @@ pub fn shop_buy_decision(
                     gold: world.party.money,
                 });
             }
-            list_cursor_pad(menu.ctx.cursor as usize, row, shop_list_page_rows(MenuState::ShopBuy))
+            list_cursor_pad(
+                menu.ctx.cursor as usize,
+                row,
+                shop_list_page_rows(MenuState::ShopBuy),
+            )
         }
         // The current runtime creates the live quantity picker immediately
         // after this state is entered. A neutral tick is the correct input.
@@ -263,11 +264,7 @@ pub struct EquipPlan {
 /// Return one Equip-menu pad edge, or `None` when the rich policy is not
 /// requesting a press. The live equip sub-session is a separate state owner
 /// from `World`, so it is intentionally an explicit argument.
-pub fn equip_pad(
-    world: &World,
-    active: &FieldMenuSubsession,
-    plan: &EquipPlan,
-) -> Option<u16> {
+pub fn equip_pad(world: &World, active: &FieldMenuSubsession, plan: &EquipPlan) -> Option<u16> {
     match equip_decision(world, active, plan) {
         PadDecision::Press(mask) => Some(mask),
         PadDecision::Done | PadDecision::Wait | PadDecision::Blocked(_) => None,
@@ -279,7 +276,12 @@ pub fn equip_decision(
     active: &FieldMenuSubsession,
     plan: &EquipPlan,
 ) -> PadDecision {
-    let Some(target) = plan.targets.iter().copied().find(|t| !is_equipped(world, *t)) else {
+    let Some(target) = plan
+        .targets
+        .iter()
+        .copied()
+        .find(|t| !is_equipped(world, *t))
+    else {
         return PadDecision::Done;
     };
 
@@ -340,7 +342,10 @@ pub fn equip_decision(
                 return press(PadButton::Circle);
             }
             let items = session.items_for_slot(slot);
-            let Some(row) = items.iter().position(|item| item.id == target.item_id && item.owned) else {
+            let Some(row) = items
+                .iter()
+                .position(|item| item.id == target.item_id && item.owned)
+            else {
                 return PadDecision::Blocked(BlockReason::EquipItemUnavailable {
                     item_id: target.item_id,
                     slot,

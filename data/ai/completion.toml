@@ -1,0 +1,178 @@
+# Completionist overlay for the live one-session AI playthrough.
+#
+# This file augments data/ai/progression.toml. The story spine remains the
+# authority for ordering; these records add optional detours and collection
+# requirements that must be satisfied before the final boss when running the
+# completionist profile.
+
+[meta]
+schema = "legaia-ai-completion-v1"
+base_progression = "data/ai/progression.toml"
+spine = "scripts/replays/full_game_spine.toml"
+profile = "completionist"
+
+[completion]
+# Meth962's 100% walkthrough tracks a 260/260 unique-item collection.
+guide_unique_item_target = 260
+all_normal_arts = true
+all_hyper_arts = true
+all_miracle_arts = true
+all_secret_ra_seru = true
+all_optional_bosses = true
+all_major_minigame_rewards = true
+all_unique_treasure = true
+# Capture at least one party copy of every normal Seru spell encountered.
+# This deliberately does not require all three characters to learn every
+# normal Seru spell; that is a maxed-save challenge beyond ordinary 100%.
+normal_seru_collection = "all_unique_party"
+# Juggernaut requires all three main characters at level 99.
+level_99_for_juggernaut = true
+
+# Secret/special spell checklist. These are mandatory in completionist mode.
+[[ra_seru]]
+name = "Palma"
+element = "earth"
+requirement = "Earn 100000 Muscle Dome coins, exchange for the Earth Egg, then have Zalan in Jeremi turn it into the Earth Talisman."
+complete_when = "Earth Talisman obtained and Palma summon is available while equipped."
+
+[[ra_seru]]
+name = "Mule"
+element = "water"
+requirement = "Earn 20000 fishing points at the Buma fishing spot, exchange for the Water Egg, then have Zalan in Jeremi turn it into the Water Talisman."
+complete_when = "Water Talisman obtained and Mule summon is available while equipped."
+
+[[ra_seru]]
+name = "Horn"
+element = "light"
+requirement = "After the Buma Genesis Trees are revived, complete the Cara/Grantes music sidequest, receive the Light Egg from Cara, then have Zalan make the Light Talisman."
+complete_when = "Light Talisman obtained and Horn summon is available while equipped."
+
+[[ra_seru]]
+name = "Jedo"
+element = "dark"
+requirement = "After the final Songi fight, return to the dead Genesis Tree in West Voz Forest, take the Dark Stone from the chest, then have Zalan make the Dark Talisman."
+complete_when = "Dark Talisman obtained and Jedo summon is available while equipped."
+
+[[ra_seru]]
+name = "Meta"
+element = "fire"
+requirement = "After the final Songi fight, Vahn must know his full Arts set; inspect the Genesis Tree in Sol's Warrior Square."
+complete_when = "Vahn can summon Meta's ultimate Ra-Seru spell."
+
+[[ra_seru]]
+name = "Terra"
+element = "wind"
+requirement = "After the final Songi fight, Noa must know her full Arts set; inspect the Genesis Tree on Mt. Rikuroa."
+complete_when = "Noa can summon Terra's ultimate Ra-Seru spell."
+
+[[ra_seru]]
+name = "Ozma"
+element = "thunder"
+requirement = "After the final Songi fight, Gala must know his full Arts set; inspect the Genesis Tree in East Voz Forest."
+complete_when = "Gala can summon Ozma's ultimate Ra-Seru spell."
+
+[[ra_seru]]
+name = "Juggernaut"
+element = "evil"
+requirement = "Raise Vahn, Noa, and Gala to level 99; return to Ratayu and speak with Saryu for the Evil Seru Key; enter the former Juggernaut room and take the Evil Talisman."
+complete_when = "Evil Talisman obtained and Juggernaut summon is available while equipped."
+
+# ---------------------------------------------------------------- milestone detours
+
+[[milestone]]
+id = "rim_elm_restored"
+required = [
+  "Return to Rim Elm and obtain the Point Card from the inn drawer if it was not collected on the first revisit.",
+]
+notes = "The Point Card is useful for the whole run, so obtain it as early as the story allows."
+
+[[milestone]]
+id = "drake_castle_revisited"
+required = [
+  "Search the room beside the throne room and obtain the hidden Platinum Card.",
+]
+notes = "The Platinum Card exposes secret shop inventory and is part of the unique-item completion route."
+
+[[milestone]]
+id = "ratayu"
+required = [
+  "When the party is safely strong enough, return to Rim Elm for the optional Queen Bee fight and obtain Honey.",
+]
+notes = "Honey is an optional permanent-stat reward. Do not hand it to an NPC before the completion tracker has credited the acquisition."
+
+[[milestone]]
+id = "sol_tower"
+required = [
+  "Complete Sol optional entertainment/collection rewards that are currently available.",
+  "Earn the Chicken King by entering Beginner, Expert, and Master Muscle Dome courses and escaping the first fight of each.",
+  "Accumulate 100000 Muscle Dome coins and exchange them for the Earth Egg; take it to Zalan for the Earth Talisman and Palma.",
+  "Complete the Sol dancing reward path, including the Speed Chain where available.",
+  "Collect optional Sol key/secret items such as Mary's Diary and other unique treasure encountered by the 100% route.",
+]
+notes = "Do not consume the entire coin bankroll on optional consumables before the Earth Egg is secured."
+
+[[milestone]]
+id = "usha_research"
+required = [
+  "Obtain the Legendary Rod at Dr. Usha's Research Center.",
+  "Detour to the Buma fishing spot and earn at least 20000 points for the Water Egg; take it to Zalan for the Water Talisman and Mule.",
+  "Continue fishing/minigame collection for unique Buma/Vidna rewards that are still missing, including Life Grail, Magic Grail, Spirit Talisman, and the hidden War God Icon reward when reachable.",
+]
+notes = "Fishing points are shared by the pond prize route; the Water Egg takes priority over duplicate consumables."
+
+[[milestone]]
+id = "nivora_late"
+required = [
+  "After the Buma Genesis Trees are restored, finish the Cara/Grantes music sidequest.",
+  "Receive the Light Egg from Cara and take it to Zalan for the Light Talisman and Horn.",
+]
+notes = "Horn is mandatory for completionist mode even though it is not required to clear the story."
+
+[[milestone]]
+id = "jette_fortress_late"
+required = [
+  "Return to Sol after Absolute Fortress and clear the Muscle Dome Master Course for the War God Icon reward.",
+  "Collect any unique Absolute Fortress treasure/rewards skipped by the story route before advancing.",
+]
+notes = "The post-Fortress Master Course reward is a known completion route item and should not be skipped."
+
+[[milestone]]
+id = "noaru_valley"
+required = [
+  "After defeating Songi for the final time, return to West Voz Forest for the Dark Stone and convert it at Zalan into the Dark Talisman for Jedo.",
+  "Ensure Vahn, Noa, and Gala have learned every required normal, Hyper, and Miracle Art.",
+  "Visit Sol's Genesis Tree for Meta's ultimate summon.",
+  "Visit Mt. Rikuroa's Genesis Tree for Terra's ultimate summon.",
+  "Visit East Voz Forest's Genesis Tree for Ozma's ultimate summon.",
+  "Return to Mt. Dhini and defeat the optional boss Lapis for the Evil Medallion if not already completed after the Soren event.",
+  "Raise all three main characters to level 99, return to Saryu in Ratayu, obtain the Evil Seru Key, and collect the Evil Talisman/Juggernaut summon.",
+]
+notes = "This is the main late-game completion sweep. The AI may grind here before entering Bio Castle; the viewer lease still governs every tick."
+
+[[milestone]]
+id = "bio_castle"
+required = [
+  "Collect every unique Bio Castle treasure on the 100% route, including the Mettle Goblet if still obtainable in this run.",
+  "Finish any remaining normal Seru captures so every unique normal Seru spell is represented somewhere in the party.",
+]
+notes = "Do not advance to the final chamber with an unresolved unique treasure or Seru checklist item."
+
+[[milestone]]
+id = "cort_chamber"
+required = [
+  "Run the final completion audit before engaging Cort.",
+  "Verify all eight special Ra-Seru/summons: Palma, Mule, Horn, Jedo, Meta, Terra, Ozma, Juggernaut.",
+  "Verify all three characters' normal/Hyper/Miracle Arts completion.",
+  "Verify optional bosses and major minigame rewards are complete.",
+  "Verify the guide-backed unique-item collection target is complete or report the exact missing entries and backtrack before the final battle.",
+]
+notes = "Cort is a hard gate in completionist mode: no final battle while a reachable completion goal remains unresolved."
+
+[sources]
+# Research sources used to normalize the requirements above. These are factual
+# summaries, not copied guide prose.
+gamefaqs_100 = "Meth962, Legend of Legaia 100% Walkthrough (FAQ 53721)"
+gamefaqs_seru = "BSauls, Seru Guide (FAQ 4737)"
+gamefaqs_misc = "Dan_GC, Misc FAQ (FAQ 4736)"
+gamefaqs_walkthrough = "PsychoPenguin, Guide and Walkthrough (FAQ 13719)"
+repo_passives = "docs/formats/accessory-passive-table.md"

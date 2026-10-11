@@ -10446,6 +10446,119 @@ fn part_a_spine_is_anchored_ordered_and_routed() {
 // Part B: the ladder
 // ---------------------------------------------------------------------------
 
+/// One line of the party's state for the continuous run's log.
+fn party_summary(session: &BootSession) -> String {
+    let w = &session.host.world;
+    let count = usize::from(w.party.party_count.min(3));
+    let members: Vec<String> = (0..count)
+        .filter_map(|m| {
+            let slot = w.party_roster_slot(m);
+            let rec = w.party.roster.members.get(slot)?;
+            let hms = rec.hp_mp_sp();
+            Some(format!(
+                "{} L{} {}/{}hp",
+                w.party_name(slot),
+                rec.level(),
+                hms.hp_cur,
+                hms.hp_max
+            ))
+        })
+        .collect();
+    format!("[{}] {}G", members.join(", "), w.party.money)
+}
+
+/// Part C: the whole spine as ONE continuous playthrough.
+///
+/// Part B seeds every segment from a retail save near its start, so it
+/// measures each stretch with a party the original player had built. This
+/// part never reseeds: one session starts a cold New Game and the pad tier
+/// plays every milestone in order on the same party, with whatever levels,
+/// gold and gear the run itself earned. It stops at the first stall and
+/// reports where and why, with the party's state at each milestone, which
+/// is the to-do list for an unassisted full playthrough.
+///
+/// Opt-in (`LEGAIA_FGL_CONTINUOUS=1`): it is long, and a stall is a finding,
+/// not a regression. `LEGAIA_FGL_RECORD` / `LEGAIA_FGL_REPLAY_CHECK` do not
+/// apply here.
+#[test]
+fn part_c_continuous_playthrough() {
+    if std::env::var_os("LEGAIA_FGL_CONTINUOUS").is_none() {
+        eprintln!("[skip] LEGAIA_FGL_CONTINUOUS unset");
+        return;
+    }
+    let Some(inp) = inputs() else { return };
+    let spine = load_spine();
+    let index = ProtIndex::open_extracted(&inp.extracted).expect("open ProtIndex");
+    let graph = DiscGraph::build(&index);
+
+    let mut session = open_session(&inp.extracted);
+    let opts = live_opts(true);
+    let start = &spine[0];
+    if let Err(e) = seed(&mut session, start, None, &opts) {
+        panic!("continuous: New Game did not start: {e}");
+    }
+    LEARNED_CADENCE.with(|l| l.set(None));
+    let t0 = std::time::Instant::now();
+    eprintln!(
+        "[cont] start {} at frame {} {}",
+        start.id,
+        session.frames,
+        party_summary(&session)
+    );
+    let mut reached_n = 0usize;
+    for target in &spine[1..] {
+        LOST_TO_ELEMENT.with(|l| l.set(None));
+        PAD_DEADLINE.with(|d| d.set(session.frames + PAD_SEGMENT_FRAMES));
+        PAD_BATTLE_LEFT.with(|l| l.set(PAD_BATTLE_ALLOWANCE));
+        let seg_start = session.frames;
+        let mut trail = vec![scene_name(&session)];
+        let r = catch_unwind(AssertUnwindSafe(|| {
+            traverse(&mut session, &graph, target, true, &mut trail)
+        }));
+        let mins = |f: u64| f as f64 / 60.0 / 60.0;
+        match r {
+            Ok(Ok(())) => {
+                reached_n += 1;
+                eprintln!(
+                    "[cont] {:2} reached {:24} +{:.1} min (game {:.1} min, wall {:.0}s) {}",
+                    reached_n,
+                    target.id,
+                    mins(session.frames - seg_start),
+                    mins(session.frames),
+                    t0.elapsed().as_secs_f32(),
+                    party_summary(&session)
+                );
+            }
+            Ok(Err(e)) => {
+                eprintln!(
+                    "[cont] STALLED before {} after {reached_n} milestone(s), game {:.1} min: {e}",
+                    target.id,
+                    mins(session.frames)
+                );
+                eprintln!(
+                    "[cont]   at {} {}",
+                    scene_name(&session),
+                    party_summary(&session)
+                );
+                eprintln!("[cont]   trail {}", trail.join(">"));
+                break;
+            }
+            Err(p) => {
+                eprintln!(
+                    "[cont] PANIC before {} after {reached_n} milestone(s): {}",
+                    target.id,
+                    panic_text(&*p)
+                );
+                break;
+            }
+        }
+    }
+    eprintln!(
+        "[cont] headline: a continuous cold New Game reaches {reached_n}/{} milestones",
+        spine.len() - 1
+    );
+}
+
 #[test]
 fn part_b_full_game_ladder() {
     let Some(inp) = inputs() else { return };

@@ -382,10 +382,10 @@ mod tests {
     use super::*;
     use legaia_engine_core::battle_stats::{EquipmentTable, StatRecord, StatusModifiers};
     use legaia_engine_core::equip_session::{EquipInput, EquipSession};
-    use legaia_engine_core::item_bag::ItemBag;
     use legaia_engine_core::shop::{
         BuyQuantitySession, QuantityPicker, ShopInventory, ShopItem, ShopSession,
     };
+    use legaia_engine_core::world::ItemBag;
 
     fn stock(ids: &[u8]) -> ShopSession {
         ShopSession::new(ShopInventory::new(

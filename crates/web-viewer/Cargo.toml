@@ -10,6 +10,9 @@ autotests = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+legaia-ai-battle.workspace = true
+legaia-ai-controller.workspace = true
+legaia-ai-navigation.workspace = true
 legaia-tim.workspace = true
 legaia-prot.workspace = true
 legaia-asset.workspace = true

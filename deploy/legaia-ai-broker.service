@@ -1,0 +1,44 @@
+[Unit]
+Description=Legend of Legaia AI Broker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=legaia-ai
+Group=legaia-ai
+WorkingDirectory=/var/lib/legaia-ai
+Environment=HOME=/home/legaia-ai
+EnvironmentFile=-/etc/legaia-ai/broker.env
+ExecStart=/opt/legaia-ai/bin/legaia-ai-broker serve
+Restart=on-failure
+RestartSec=3
+
+# The broker launches the official Claude/Codex clients, so it needs outbound
+# network access and the service user's own HOME for their login state. It does
+# not need privileged host access.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RemoveIPC=true
+UMask=0077
+
+# Writable application scratch only. CLI auth remains owned by the dedicated
+# service user in /home/legaia-ai; do not place ROMs or homelab credentials in
+# the broker working directory.
+ReadWritePaths=/var/lib/legaia-ai /home/legaia-ai
+
+[Install]
+WantedBy=multi-user.target

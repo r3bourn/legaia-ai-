@@ -1,0 +1,15 @@
+[package]
+name = "legaia-ai-navigation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "legaia_ai_navigation"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+legaia-ai-controller.workspace = true
+legaia-engine-core.workspace = true

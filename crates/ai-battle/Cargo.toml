@@ -1,0 +1,18 @@
+[package]
+name = "legaia-ai-battle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "legaia_ai_battle"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+legaia-ai-controller.workspace = true
+legaia-engine-core.workspace = true
+legaia-engine-menus.workspace = true
+
+[dev-dependencies]
+legaia-save.workspace = true

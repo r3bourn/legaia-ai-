@@ -1,0 +1,40 @@
+# Example only. Keep the real guide under /srv/legaia-private and out of Git.
+# Coordinates below are illustrative, not claims about retail scene positions.
+# Build the real checkpoint list from live telemetry while validating the
+# walkthrough, rather than copying copyrighted walkthrough prose into Git.
+
+title: Example opening guide
+source: local-user-walkthrough
+
+checkpoints:
+  - id: example-start
+    objective: Reach the next interaction point
+    scene: town01
+    action: navigate
+    target:
+      x: 1000
+      z: 1000
+      radius: 64
+    completion:
+      kind: near_target
+    notes:
+      - Replace this target with a coordinate captured from live telemetry.
+
+  - id: example-talk
+    objective: Talk to the nearby story NPC
+    scene: town01
+    action: interact
+    target:
+      x: 1100
+      z: 1000
+      radius: 48
+    completion:
+      kind: dialog_open
+
+  - id: example-scene-exit
+    objective: Continue until the field changes
+    scene: town01
+    action: observe
+    completion:
+      kind: scene_changed_from
+      scene: town01

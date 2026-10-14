@@ -1,0 +1,16 @@
+[package]
+name = "legaia-ai-guide"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "legaia_ai_guide"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+legaia-ai-controller.workspace = true

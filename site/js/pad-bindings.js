@@ -122,6 +122,10 @@
       if (y <= -STICK_DEAD_ZONE) out.add('Up');
       if (y >= STICK_DEAD_ZONE) out.add('Down');
     }
+    /* The play page's on-screen touch controller (touch-pad.js) presents
+     * itself as one more controller: a Set of the PSX button names held. */
+    const virt = window.legaiaVirtualPadButtons;
+    if (virt) for (const name of virt) out.add(name);
     return out;
   }
 
@@ -198,4 +202,19 @@
     if (!bit || !PAD) return [];
     return Object.keys(PAD).filter((code) => PAD[code] === bit);
   };
+
+  /* The AI spectator helper is intentionally a separate file so upstream's
+   * giant play frame loop remains untouched. `play.html` already loads this
+   * shared pad module, and the play page exposes its runtime as
+   * `window.__playRuntime`; dynamically loading the helper here gives the
+   * fork one tiny integration seam while leaving minigames and viewer pages
+   * unchanged. */
+  if (typeof document !== 'undefined' && /(?:^|\/)play\.html$/.test(location.pathname)) {
+    for (const src of ['js/ai-player.js', 'js/homelab-disc.js', 'js/touch-pad.js']) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }
 }());

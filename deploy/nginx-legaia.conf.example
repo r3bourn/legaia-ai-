@@ -1,0 +1,39 @@
+# Example reverse proxy for the AI-enabled browser build.
+#
+# Recommended topology:
+#   Cloudflare Tunnel / Tailscale -> nginx :8080
+#   nginx /                    -> static Legaia site
+#   nginx /ai/*                -> loopback-only broker :4317
+#
+# The broker itself stays on 127.0.0.1 and Claude/Codex are never exposed.
+
+server {
+    listen 127.0.0.1:8080;
+    server_name _;
+
+    root /opt/legaia-ai/site;
+    index play.html;
+
+    client_max_body_size 512k;
+
+    # Static browser/WASM app. The disc image is selected by the user in the
+    # browser; it is not served from this directory.
+    location / {
+        try_files $uri $uri/ /play.html;
+        add_header Cache-Control "no-cache";
+    }
+
+    # `/ai/step` becomes broker `/step`, `/ai/health` becomes `/health`.
+    location /ai/ {
+        proxy_pass http://127.0.0.1:4317/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 90s;
+        proxy_send_timeout 10s;
+        proxy_buffering off;
+        add_header Cache-Control "no-store" always;
+    }
+}
